@@ -10,13 +10,85 @@ const getChatStorageKey =
   (charId) =>
     `chat_history_${charId}`;
 
+const getSavedCharacters =
+  () => {
+    try {
+      const savedCharacters =
+        localStorage.getItem(
+          "roleplay_characters"
+        );
+
+      /**
+       * Jika ada data
+       */
+      if (
+        savedCharacters
+      ) {
+        return JSON.parse(
+          savedCharacters
+        );
+      }
+
+      /**
+       * Fallback
+       */
+      return initialCharacters;
+    } catch (
+      error
+    ) {
+      console.error(
+        "Gagal membaca karakter:",
+        error
+      );
+
+      return initialCharacters;
+    }
+  };
+
 function App() {
   /**
    * Character State
    */
-  const [characters] =
-    useState(initialCharacters);
+ const [
+  characters,
+  setCharacters,
+] = useState(
+  getSavedCharacters
+);
 
+
+/**
+ * Save characters
+ */
+useEffect(() => {
+  localStorage.setItem(
+    "roleplay_characters",
+    JSON.stringify(
+      characters
+    )
+  );
+}, [characters]);
+
+/**
+ * Sinkronisasi karakter
+ * ke localStorage
+ */
+useEffect(() => {
+  try {
+    localStorage.setItem(
+      "roleplay_characters",
+      JSON.stringify(
+        characters
+      )
+    );
+  } catch (error) {
+    console.error(
+      "Gagal menyimpan karakter:",
+      error
+    );
+  }
+}, [characters]);
+    
   
   const [activeChar,
   setActiveChar] =
