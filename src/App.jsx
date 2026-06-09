@@ -7,24 +7,36 @@ import CharacterProfile from "./components/CharacterProfile";
 import initialCharacters from "./data/initialCharacters";
 import { sendRoleplayMessage } from "./services/api";
 import CharacterModal from "./components/CharacterModal";
+import {
+  loadProfessionKnowledge,
+  getRelevantKnowledge,
+} from "./services/knowledgeService";
 import { Info } from "lucide-react";
+import { cleanAiResponse } from "./utils/cleanAiResponse";
 
 const getChatStorageKey = (charId) => `chat_history_${charId}`;
 
-const getSavedCharacters = () => {
-  try {
-    const savedCharacters = localStorage.getItem("roleplay_characters");
-    if (savedCharacters) {
-      return JSON.parse(savedCharacters);
-    }
-    return initialCharacters;
-  } catch (error) {
-    console.error("Gagal membaca karakter:", error);
-    return initialCharacters;
-  }
-};
 
 function App() {
+
+  const getSavedCharacters = () => {
+    try {
+      const savedCharacters = localStorage.getItem("roleplay_characters");
+      if (savedCharacters) {
+        return JSON.parse(savedCharacters);
+      }
+      return initialCharacters;
+    } catch (error) {
+      console.error("Gagal membaca karakter:", error);
+      return initialCharacters;
+    }
+  };
+  const handleSelectCharacter = async (char) => {
+    setActiveChar(char);
+    const knowledge = await loadProfessionKnowledge(char.profession);
+    console.log(knowledge);
+  };
+
   const [characters, setCharacters] = useState(getSavedCharacters);
 
   useEffect(() => {
@@ -39,7 +51,12 @@ function App() {
     }
   }, [characters]);
 
-  const [activeChar, setActiveChar] = useState(initialCharacters[0]);
+ const [activeChar,
+setActiveChar] =
+useState(
+  characters[0] ||
+    null
+);
   const [editingChar, setEditingChar] = useState(null);
   const [isCharacterModalOpen, setIsCharacterModalOpen] = useState(false);
 
@@ -73,7 +90,9 @@ function App() {
   useEffect(() => {
     const savedCharId = localStorage.getItem("active_character");
     if (savedCharId) {
-      const foundChar = initialCharacters.find((char) => char.id === savedCharId);
+      const foundChar = initialCharacters.find(
+        (char) => char.id === savedCharId,
+      );
       if (foundChar) {
         setActiveChar(foundChar);
         return;
@@ -98,60 +117,238 @@ function App() {
       { id: Date.now(), role: "character", text: activeChar.first_mes },
     ];
     setMessages(initialMessages);
-    localStorage.setItem(getChatStorageKey(activeChar.id), JSON.stringify(initialMessages));
+    localStorage.setItem(
+      getChatStorageKey(activeChar.id),
+      JSON.stringify(initialMessages),
+    );
   }, [activeChar]);
 
   useEffect(() => {
     if (!activeChar || !messages.length) return;
-    localStorage.setItem(getChatStorageKey(activeChar.id), JSON.stringify(messages));
+    localStorage.setItem(
+      getChatStorageKey(activeChar.id),
+      JSON.stringify(messages),
+    );
   }, [messages, activeChar]);
 
   const handleSendMessage = async (messageText) => {
     if (!messageText.trim()) return;
 
-    const userMessage = { id: Date.now(), role: "user", text: messageText };
+    /**
+     * User message
+     */
+    const userMessage = {
+      id: Date.now(),
+      role: "user",
+      text: messageText,
+    };
+
     const updatedMessages = [...messages, userMessage];
+
     setMessages(updatedMessages);
+
+    /**
+     * Keyword-triggered
+     * profession knowledge
+     */
+    const relevantKnowledge = getRelevantKnowledge(
+      activeChar?.profession,
+      messageText,
+    );
+
+    console.log("Relevant Knowledge:", relevantKnowledge);
 
     try {
       setIsLoading(true);
-      const aiReply = await sendRoleplayMessage({
-        config: settings,
-        character: activeChar,
-        messages: updatedMessages,
-      });
-      const aiMessage = { id: Date.now() + 1, role: "character", text: aiReply };
+
+console.log(
+  "ACTIVE CHAR:",
+  activeChar
+);
+
+console.log(
+  "PROFESSION:",
+  activeChar?.profession
+);
+
+console.log(
+  "TRAITS:",
+  activeChar?.traits
+);
+
+const aiReply =
+  await sendRoleplayMessage({
+    config: settings,
+    character: activeChar,
+    messages: updatedMessages,
+    relevantKnowledge,
+  });
+
+const cleanedReply =
+  cleanAiResponse(aiReply);
+
+const aiMessage = {
+  id: Date.now() + 1,
+  role: "character",
+  text: cleanedReply,
+};
+
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
       console.error(error);
+
       setMessages((prev) => [
         ...prev,
-        { id: Date.now() + 2, role: "character", text: "Terjadi kesalahan saat menghubungi AI." },
+        {
+          id: Date.now() + 2,
+
+          role: "character",
+
+          text: "Terjadi kesalahan saat menghubungi AI.",
+        },
       ]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSaveCharacter = (formData) => {
-    if (!editingChar) {
-      const newChar = {
-        id: `char_${Date.now()}`,
-        name: formData.name,
-        avatar: formData.avatar,
-        description: formData.description,
-        personality: formData.personality,
-        first_mes: formData.first_mes,
-        scenario: formData.scenario,
-      };
-      setCharacters([...characters, newChar]);
-      setActiveChar(newChar);
+  const handleSaveCharacter = (
+  formData
+) => {
+  /**
+   * EDIT MODE
+   */
+  if (editingChar) {
+    const updatedCharacters =
+      characters.map(
+        (char) =>
+          char.id ===
+          editingChar.id
+            ? {
+                ...char,
+
+                name:
+                  formData.name,
+
+                avatar:
+                  formData.avatar,
+
+                description:
+                  formData.description,
+
+                profession:
+                  formData.profession,
+
+                traits:
+                  formData.traits,
+
+                /**
+                 * backward compatibility
+                 */
+                personality:
+                  formData.traits.join(
+                    ", "
+                  ),
+
+                first_mes:
+                  formData.first_mes,
+
+                scenario:
+                  formData.scenario,
+              }
+            : char
+      );
+
+    setCharacters(
+      updatedCharacters
+    );
+
+    /**
+     * update active char
+     */
+    if (
+      activeChar?.id ===
+      editingChar.id
+    ) {
+      const updatedChar =
+        updatedCharacters.find(
+          (
+            c
+          ) =>
+            c.id ===
+            editingChar.id
+        );
+
+      setActiveChar(
+        updatedChar
+      );
     }
-    setIsCharacterModalOpen(false);
-  };
+  } else {
+    /**
+     * CREATE MODE
+     */
+    const newChar = {
+      id:
+        `char_${Date.now()}`,
+
+      name:
+        formData.name,
+
+      avatar:
+        formData.avatar,
+
+      description:
+        formData.description,
+
+      profession:
+        formData.profession,
+
+      traits:
+        formData.traits,
+
+      /**
+       * compatibility
+       */
+      personality:
+        formData.traits.join(
+          ", "
+        ),
+
+      first_mes:
+        formData.first_mes,
+
+      scenario:
+        formData.scenario,
+    };
+
+    const updated =
+      [
+        ...characters,
+        newChar,
+      ];
+
+    setCharacters(
+      updated
+    );
+
+    setActiveChar(
+      newChar
+    );
+  }
+
+  setEditingChar(
+    null
+  );
+
+  setIsCharacterModalOpen(
+    false
+  );
+};
 
   const handleDeleteCharacter = (charId) => {
-    const isConfirmed = window.confirm("Apakah Anda yakin ingin menghapus karakter ini?");
+    const isConfirmed = window.confirm(
+      "Apakah Anda yakin ingin menghapus karakter ini?",
+    );
     if (!isConfirmed) return;
     const filteredCharacters = characters.filter((char) => char.id !== charId);
     setCharacters(filteredCharacters);
@@ -169,19 +366,25 @@ function App() {
         { id: Date.now(), role: "character", text: activeChar.first_mes },
       ];
       setMessages(initialMessage);
-      localStorage.setItem(getChatStorageKey(activeChar.id), JSON.stringify(initialMessage));
+      localStorage.setItem(
+        getChatStorageKey(activeChar.id),
+        JSON.stringify(initialMessage),
+      );
     }
     alert("Semua riwayat chat berhasil dihapus.");
   };
 
   return (
     <>
-      <div className="flex h-screen overflow-hidden" style={{ background: "#6b4f35" }}>
+      <div
+        className="flex h-screen overflow-hidden"
+        style={{ background: "#6b4f35" }}
+      >
         {/* Sidebar */}
         <Sidebar
           characters={characters}
           activeChar={activeChar}
-          onSelectCharacter={setActiveChar}
+          onSelectCharacter={handleSelectCharacter}
           handleDeleteCharacter={handleDeleteCharacter}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onAddCharacter={() => {
@@ -198,7 +401,8 @@ function App() {
         <main
           className="flex flex-1 flex-col relative"
           style={{
-            background: "linear-gradient(135deg, #f5ead2 0%, #ecdfc0 50%, #e8dfd0 100%)",
+            background:
+              "linear-gradient(135deg, #f5ead2 0%, #ecdfc0 50%, #e8dfd0 100%)",
           }}
         >
           {/* Page texture overlay */}
@@ -214,29 +418,44 @@ function App() {
           {activeChar && (
             <header
               className="flex items-center justify-between px-6 py-4 border-b-4 border-[#c9a875] shadow-lg relative z-10"
-              style={{ background: "linear-gradient(to right, #fff5e6, #f5ead2)" }}
+              style={{
+                background: "linear-gradient(to right, #fff5e6, #f5ead2)",
+              }}
             >
               <div
                 className="absolute top-0 right-0 w-20 h-20 opacity-10 pointer-events-none"
-                style={{ background: "radial-gradient(circle at top right, #8b6f47 0%, transparent 70%)" }}
+                style={{
+                  background:
+                    "radial-gradient(circle at top right, #8b6f47 0%, transparent 70%)",
+                }}
               />
 
               <div className="flex items-center gap-4 relative z-10">
                 <div className="bg-white p-1.5 pb-3 rounded-sm shadow-lg transform -rotate-3">
                   <div className="w-12 h-12 rounded-sm bg-gradient-to-br from-[#ffd93d] to-[#ffa94d] flex items-center justify-center overflow-hidden">
                     {activeChar.avatar ? (
-                      <img src={activeChar.avatar} alt={activeChar.name} className="w-full h-full object-cover" />
+                      <img
+                        src={activeChar.avatar}
+                        alt={activeChar.name}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
-                      <span className="text-xl text-white font-bold">{activeChar.name[0]}</span>
+                      <span className="text-xl text-white font-bold">
+                        {activeChar.name[0]}
+                      </span>
                     )}
                   </div>
                 </div>
 
                 <div>
-                  <h1 className="font-bold text-[#2d1f10] text-lg">{activeChar.name}</h1>
+                  <h1 className="font-bold text-[#2d1f10] text-lg">
+                    {activeChar.name}
+                  </h1>
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-[#6bcf7f] animate-pulse shadow-lg" />
-                    <span className="text-sm text-[#5a4a3a] font-medium">{activeChar.personality}</span>
+                    <span className="text-sm text-[#5a4a3a] font-medium">
+                      {activeChar.personality}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -259,18 +478,27 @@ function App() {
                   <div className="bg-white p-4 pb-8 rounded-sm shadow-2xl mx-auto mb-6 inline-block transform hover:rotate-0 transition-transform rotate-2">
                     <div className="w-32 h-32 rounded-sm bg-gradient-to-br from-[#ffd93d] to-[#ffa94d] mx-auto flex items-center justify-center overflow-hidden">
                       {activeChar?.avatar ? (
-                        <img src={activeChar.avatar} alt={activeChar?.name} className="w-full h-full object-cover" />
+                        <img
+                          src={activeChar.avatar}
+                          alt={activeChar?.name}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
-                        <span className="text-5xl text-white font-bold">{activeChar?.name?.[0]}</span>
+                        <span className="text-5xl text-white font-bold">
+                          {activeChar?.name?.[0]}
+                        </span>
                       )}
                     </div>
-                    <div className="text-center mt-2 text-[#3a2f1f] text-sm">Ready to chat!</div>
+                    <div className="text-center mt-2 text-[#3a2f1f] text-sm">
+                      Ready to chat!
+                    </div>
                   </div>
 
                   <div
                     className="absolute top-8 left-1/2 -translate-x-1/2 w-24 h-6 bg-[#ff6b6b]/50 -rotate-6 -z-10"
                     style={{
-                      backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.3) 10px, rgba(255,255,255,0.3) 20px)",
+                      backgroundImage:
+                        "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.3) 10px, rgba(255,255,255,0.3) 20px)",
                     }}
                   />
 
@@ -289,7 +517,9 @@ function App() {
                 ))}
 
                 {isLoading && (
-                  <ChatBubble message={{ role: "character", text: "Typing..." }} />
+                  <ChatBubble
+                    message={{ role: "character", text: "Typing..." }}
+                  />
                 )}
 
                 <div ref={messagesEndRef} />
