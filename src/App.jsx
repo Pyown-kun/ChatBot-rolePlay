@@ -5,11 +5,14 @@ import ChatInput from "./components/ChatInput";
 import SettingsModal from "./components/SettingsModal";
 import initialCharacters from "./data/initialCharacters";
 import { sendRoleplayMessage } from "./services/api";
+import CharacterModal
+from "./components/CharacterModal";
 
 const getChatStorageKey =
   (charId) =>
     `chat_history_${charId}`;
 
+ 
 const getSavedCharacters =
   () => {
     try {
@@ -56,7 +59,6 @@ function App() {
   getSavedCharacters
 );
 
-
 /**
  * Save characters
  */
@@ -89,10 +91,22 @@ useEffect(() => {
   }
 }, [characters]);
     
-  
+
+
   const [activeChar,
   setActiveChar] =
     useState(initialCharacters[0]);
+
+const [
+  editingChar,
+  setEditingChar,
+] = useState(null);  
+
+ const [
+  isCharacterModalOpen,
+  setIsCharacterModalOpen,
+] = useState(false);
+
   /**
    * Chat State
    */
@@ -389,6 +403,113 @@ useEffect(() => {
     }
   };
 
+  const handleSaveCharacter =
+  (formData) => {
+    /**
+     * MODE CREATE
+     */
+    if (
+      !editingChar
+    ) {
+      const newChar =
+        {
+          id: `char_${Date.now()}`,
+
+          name:
+            formData.name,
+
+          avatar:
+            formData.avatar,
+
+          description:
+            formData.description,
+
+          personality:
+            formData.personality,
+
+          first_mes:
+            formData.first_mes,
+
+          scenario:
+            formData.scenario,
+        };
+
+      /**
+       * Tambahkan ke state
+       */
+      setCharacters([
+        ...characters,
+        newChar,
+      ]);
+
+      /**
+       * Optional:
+       * langsung pilih
+       * karakter baru
+       */
+      setActiveChar(
+        newChar
+      );
+    }
+
+    /**
+     * Tutup modal
+     */
+    setIsCharacterModalOpen(
+      false
+    );
+  };
+
+  const handleDeleteCharacter =
+  (charId) => {
+    /**
+     * Konfirmasi user
+     */
+    const isConfirmed =
+      window.confirm(
+        "Apakah Anda yakin ingin menghapus karakter ini?"
+      );
+
+    /**
+     * Batal hapus
+     */
+    if (
+      !isConfirmed
+    )
+      return;
+
+    /**
+     * Filter karakter
+     */
+    const filteredCharacters =
+      characters.filter(
+        (char) =>
+          char.id !==
+          charId
+      );
+
+    /**
+     * Update state
+     */
+    setCharacters(
+      filteredCharacters
+    );
+
+    /**
+     * Jika karakter aktif
+     * ikut dihapus
+     */
+    if (
+      activeChar?.id ===
+      charId
+    ) {
+      setActiveChar(
+        filteredCharacters[0] ||
+          null
+      );
+    }
+  };
+
 const handleResetChats =
   () => {
     /**
@@ -443,8 +564,12 @@ const handleResetChats =
 
   return (
     <>
+
+      
+
       <div className="flex h-screen bg-slate-950 text-white">
         {/* Sidebar */}
+        
         <Sidebar
           characters={
             characters
@@ -455,41 +580,66 @@ const handleResetChats =
           onSelectCharacter={
             setActiveChar
           }
+          handleDeleteCharacter={
+    handleDeleteCharacter}
           onOpenSettings={() =>
             setIsSettingsOpen(
               true
             )
           }
+           onAddCharacter={() => {
+    setEditingChar(
+      null
+    );
+
+    setIsCharacterModalOpen(
+      true
+    );
+  }}
+onEditCharacter={(
+    char
+  ) => {
+    setEditingChar(
+      char
+    );
+
+    setIsCharacterModalOpen(
+      true
+    );
+  }}          
         />
+        
 
         {/* Main Chat */}
         <main className="flex flex-1 flex-col">
           {/* Header */}
-          <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900 px-6 py-4">
-            <img
-              src={
-                activeChar.avatar
-              }
-              alt={
-                activeChar.name
-              }
-              className="h-12 w-12 rounded-full object-cover"
-            />
+          {activeChar && (
+  <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900 px-6 py-4">
+    <img
+      src={
+        activeChar.avatar
+      }
+      alt={
+        activeChar.name
+      }
+      className="h-12 w-12 rounded-full object-cover"
+    />
 
-            <div>
-              <h1 className="text-lg font-semibold">
-                {
-                  activeChar.name
-                }
-              </h1>
+    <div>
+      <h1 className="text-lg font-semibold">
+        {
+          activeChar.name
+        }
+      </h1>
 
-              <p className="text-sm text-slate-400">
-                {
-                  activeChar.personality
-                }
-              </p>
-            </div>
-          </header>
+      <p className="text-sm text-slate-400">
+        {
+          activeChar.personality
+        }
+      </p>
+    </div>
+  </header>
+)}
 
           {/* Chat Area */}
           <section className="flex-1 overflow-y-auto p-5">
@@ -532,6 +682,24 @@ const handleResetChats =
               isLoading
             }
           />
+
+          {/* Character Modal */}
+          <CharacterModal
+  isOpen={
+    isCharacterModalOpen
+  }
+  onClose={() =>
+    setIsCharacterModalOpen(
+      false
+    )
+  }
+  editingChar={
+    editingChar
+  }
+  onSave={
+    handleSaveCharacter
+  }
+/>
         </main>
       </div>
 
