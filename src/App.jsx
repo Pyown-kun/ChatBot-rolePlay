@@ -5,668 +5,415 @@ import ChatInput from "./components/ChatInput";
 import SettingsModal from "./components/SettingsModal";
 import initialCharacters from "./data/initialCharacters";
 import { sendRoleplayMessage } from "./services/api";
-import CharacterModal
-from "./components/CharacterModal";
+import CharacterModal from "./components/CharacterModal";
 
-const getChatStorageKey =
-  (charId) =>
-    `chat_history_${charId}`;
+const getChatStorageKey = (charId) => `chat_history_${charId}`;
 
- 
-const getSavedCharacters =
-  () => {
-    try {
-      const savedCharacters =
-        localStorage.getItem(
-          "roleplay_characters"
-        );
+const getSavedCharacters = () => {
+  try {
+    const savedCharacters = localStorage.getItem("roleplay_characters");
 
-      /**
-       * Jika ada data
-       */
-      if (
-        savedCharacters
-      ) {
-        return JSON.parse(
-          savedCharacters
-        );
-      }
-
-      /**
-       * Fallback
-       */
-      return initialCharacters;
-    } catch (
-      error
-    ) {
-      console.error(
-        "Gagal membaca karakter:",
-        error
-      );
-
-      return initialCharacters;
+    /**
+     * Jika ada data
+     */
+    if (savedCharacters) {
+      return JSON.parse(savedCharacters);
     }
-  };
+
+    /**
+     * Fallback
+     */
+    return initialCharacters;
+  } catch (error) {
+    console.error("Gagal membaca karakter:", error);
+
+    return initialCharacters;
+  }
+};
 
 function App() {
   /**
    * Character State
    */
- const [
-  characters,
-  setCharacters,
-] = useState(
-  getSavedCharacters
-);
+  const [characters, setCharacters] = useState(getSavedCharacters);
 
-/**
- * Save characters
- */
-useEffect(() => {
-  localStorage.setItem(
-    "roleplay_characters",
-    JSON.stringify(
-      characters
-    )
-  );
-}, [characters]);
+  /**
+   * Save characters
+   */
+  useEffect(() => {
+    localStorage.setItem("roleplay_characters", JSON.stringify(characters));
+  }, [characters]);
 
-/**
- * Sinkronisasi karakter
- * ke localStorage
- */
-useEffect(() => {
-  try {
-    localStorage.setItem(
-      "roleplay_characters",
-      JSON.stringify(
-        characters
-      )
-    );
-  } catch (error) {
-    console.error(
-      "Gagal menyimpan karakter:",
-      error
-    );
-  }
-}, [characters]);
-    
+  /**
+   * Sinkronisasi karakter
+   * ke localStorage
+   */
+  useEffect(() => {
+    try {
+      localStorage.setItem("roleplay_characters", JSON.stringify(characters));
+    } catch (error) {
+      console.error("Gagal menyimpan karakter:", error);
+    }
+  }, [characters]);
 
+  const [activeChar, setActiveChar] = useState(initialCharacters[0]);
 
-  const [activeChar,
-  setActiveChar] =
-    useState(initialCharacters[0]);
+  const [editingChar, setEditingChar] = useState(null);
 
-const [
-  editingChar,
-  setEditingChar,
-] = useState(null);  
-
- const [
-  isCharacterModalOpen,
-  setIsCharacterModalOpen,
-] = useState(false);
+  const [isCharacterModalOpen, setIsCharacterModalOpen] = useState(false);
 
   /**
    * Chat State
    */
-  const [messages,
-  setMessages] =
-    useState([]);
+  const [messages, setMessages] = useState([]);
 
-  const [isLoading,
-  setIsLoading] =
-    useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   /**
    * Settings Modal
    */
-  const [isSettingsOpen,
-  setIsSettingsOpen] =
-    useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   /**
    * API Config State
    */
-  const [settings,
-  setSettings] =
-    useState({
-      provider: "openai",
-      apiKey: "",
-      baseUrl:
-        "https://api.openai.com/v1",
-      model: "gpt-4o",
-    });
+  const [settings, setSettings] = useState({
+    provider: "openai",
+    apiKey: "",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o",
+  });
 
   /**
    * Load API Config
    * dari localStorage
    */
   useEffect(() => {
-    const savedConfig =
-      localStorage.getItem(
-        "api_config"
-      );
+    const savedConfig = localStorage.getItem("api_config");
 
     if (savedConfig) {
-      setSettings(
-        JSON.parse(savedConfig)
-      );
+      setSettings(JSON.parse(savedConfig));
     }
   }, []);
 
   /**
- * Load active character
- */
-useEffect(() => {
-  const savedCharId =
-    localStorage.getItem(
-      "active_character"
-    );
+   * Load active character
+   */
+  useEffect(() => {
+    const savedCharId = localStorage.getItem("active_character");
 
-  if (savedCharId) {
-    const foundChar =
-      initialCharacters.find(
-        (char) =>
-          char.id ===
-          savedCharId
+    if (savedCharId) {
+      const foundChar = initialCharacters.find(
+        (char) => char.id === savedCharId,
       );
 
-    if (foundChar) {
-      setActiveChar(
-        foundChar
-      );
-      return;
+      if (foundChar) {
+        setActiveChar(foundChar);
+        return;
+      }
     }
-  }
+
+    /**
+     * fallback character pertama
+     */
+    setActiveChar(initialCharacters[0]);
+  }, []);
 
   /**
-   * fallback character pertama
+   * Save active character
    */
-  setActiveChar(
-    initialCharacters[0]
-  );
-}, []);
+  useEffect(() => {
+    if (!activeChar) return;
 
-/**
- * Save active character
- */
-useEffect(() => {
-  if (!activeChar)
-    return;
-
-  localStorage.setItem(
-    "active_character",
-    activeChar.id
-  );
-}, [activeChar]);
+    localStorage.setItem("active_character", activeChar.id);
+  }, [activeChar]);
 
   /**
    * Saat karakter berubah:
    * reset chat + tampilkan first_mes
    */
   /**
- * Load chat history
- * berdasarkan karakter
- */
-useEffect(() => {
-  if (!activeChar)
-    return;
-
-  const savedChat =
-    localStorage.getItem(
-      getChatStorageKey(
-        activeChar.id
-      )
-    );
-
-  /**
-   * Jika ada history
+   * Load chat history
+   * berdasarkan karakter
    */
-  if (savedChat) {
-    setMessages(
-      JSON.parse(
-        savedChat
-      )
-    );
+  useEffect(() => {
+    if (!activeChar) return;
 
-    return;
-  }
+    const savedChat = localStorage.getItem(getChatStorageKey(activeChar.id));
 
-  /**
-   * Jika belum ada
-   * pakai first_mes
-   */
-  const initialMessages =
-    [
+    /**
+     * Jika ada history
+     */
+    if (savedChat) {
+      setMessages(JSON.parse(savedChat));
+
+      return;
+    }
+
+    /**
+     * Jika belum ada
+     * pakai first_mes
+     */
+    const initialMessages = [
       {
         id: Date.now(),
-        role:
-          "character",
-        text:
-          activeChar.first_mes,
+        role: "character",
+        text: activeChar.first_mes,
       },
     ];
 
-  setMessages(
-    initialMessages
-  );
+    setMessages(initialMessages);
 
-  localStorage.setItem(
-    getChatStorageKey(
-      activeChar.id
-    ),
-    JSON.stringify(
-      initialMessages
-    )
-  );
-}, [activeChar]);
+    localStorage.setItem(
+      getChatStorageKey(activeChar.id),
+      JSON.stringify(initialMessages),
+    );
+  }, [activeChar]);
 
-/**
- * Save messages
- */
-useEffect(() => {
-  if (
-    !activeChar ||
-    !messages.length
-  )
-    return;
+  /**
+   * Save messages
+   */
+  useEffect(() => {
+    if (!activeChar || !messages.length) return;
 
-  localStorage.setItem(
-    getChatStorageKey(
-      activeChar.id
-    ),
-    JSON.stringify(
-      messages
-    )
-  );
-}, [
-  messages,
-  activeChar,
-]);
+    localStorage.setItem(
+      getChatStorageKey(activeChar.id),
+      JSON.stringify(messages),
+    );
+  }, [messages, activeChar]);
 
   /**
    * Handle Send Message
    */
- const handleSendMessage =
-  async (
-    messageText
-  ) => {
-    if (
-      !messageText.trim()
-    )
-      return;
+  const handleSendMessage = async (messageText) => {
+    if (!messageText.trim()) return;
 
     /**
      * Pesan user
      */
-    const userMessage =
-      {
-        id: Date.now(),
-        role: "user",
-        text:
-          messageText,
-      };
+    const userMessage = {
+      id: Date.now(),
+      role: "user",
+      text: messageText,
+    };
 
     /**
      * Update history
      */
-    const updatedMessages =
-      [
-        ...messages,
-        userMessage,
-      ];
+    const updatedMessages = [...messages, userMessage];
 
-    setMessages(
-      updatedMessages
-    );
+    setMessages(updatedMessages);
 
     try {
-      setIsLoading(
-        true
-      );
+      setIsLoading(true);
 
       /**
        * Panggil API
        */
-      const aiReply =
-        await sendRoleplayMessage(
-          {
-            // config hari 3
-            config:
-              settings,
+      const aiReply = await sendRoleplayMessage({
+        // config hari 3
+        config: settings,
 
-            // karakter aktif
-            character:
-              activeChar,
+        // karakter aktif
+        character: activeChar,
 
-            // seluruh history
-            messages:
-              updatedMessages,
-          }
-        );
+        // seluruh history
+        messages: updatedMessages,
+      });
 
       /**
        * Tambahkan
        * balasan AI
        */
-      const aiMessage =
+      const aiMessage = {
+        id: Date.now() + 1,
+
+        role: "character",
+
+        text: aiReply,
+      };
+
+      setMessages((prev) => [...prev, aiMessage]);
+    } catch (error) {
+      console.error(error);
+
+      setMessages((prev) => [
+        ...prev,
         {
-          id:
-            Date.now() +
-            1,
+          id: Date.now() + 2,
 
-          role:
-            "character",
+          role: "character",
 
-          text:
-            aiReply,
-        };
-
-      setMessages(
-        (
-          prev
-        ) => [
-          ...prev,
-          aiMessage,
-        ]
-      );
-    } catch (
-      error
-    ) {
-      console.error(
-        error
-      );
-
-      setMessages(
-        (
-          prev
-        ) => [
-          ...prev,
-          {
-            id:
-              Date.now() +
-              2,
-
-            role:
-              "character",
-
-            text:
-              "Terjadi kesalahan saat menghubungi AI.",
-          },
-        ]
-      );
+          text: "Terjadi kesalahan saat menghubungi AI.",
+        },
+      ]);
     } finally {
-      setIsLoading(
-        false
-      );
+      setIsLoading(false);
     }
   };
 
-  const handleSaveCharacter =
-  (formData) => {
+  const handleSaveCharacter = (formData) => {
     /**
      * MODE CREATE
      */
-    if (
-      !editingChar
-    ) {
-      const newChar =
-        {
-          id: `char_${Date.now()}`,
+    if (!editingChar) {
+      const newChar = {
+        id: `char_${Date.now()}`,
 
-          name:
-            formData.name,
+        name: formData.name,
 
-          avatar:
-            formData.avatar,
+        avatar: formData.avatar,
 
-          description:
-            formData.description,
+        description: formData.description,
 
-          personality:
-            formData.personality,
+        personality: formData.personality,
 
-          first_mes:
-            formData.first_mes,
+        first_mes: formData.first_mes,
 
-          scenario:
-            formData.scenario,
-        };
+        scenario: formData.scenario,
+      };
 
       /**
        * Tambahkan ke state
        */
-      setCharacters([
-        ...characters,
-        newChar,
-      ]);
+      setCharacters([...characters, newChar]);
 
       /**
        * Optional:
        * langsung pilih
        * karakter baru
        */
-      setActiveChar(
-        newChar
-      );
+      setActiveChar(newChar);
     }
 
     /**
      * Tutup modal
      */
-    setIsCharacterModalOpen(
-      false
-    );
+    setIsCharacterModalOpen(false);
   };
 
-  const handleDeleteCharacter =
-  (charId) => {
+  const handleDeleteCharacter = (charId) => {
     /**
      * Konfirmasi user
      */
-    const isConfirmed =
-      window.confirm(
-        "Apakah Anda yakin ingin menghapus karakter ini?"
-      );
+    const isConfirmed = window.confirm(
+      "Apakah Anda yakin ingin menghapus karakter ini?",
+    );
 
     /**
      * Batal hapus
      */
-    if (
-      !isConfirmed
-    )
-      return;
+    if (!isConfirmed) return;
 
     /**
      * Filter karakter
      */
-    const filteredCharacters =
-      characters.filter(
-        (char) =>
-          char.id !==
-          charId
-      );
+    const filteredCharacters = characters.filter((char) => char.id !== charId);
 
     /**
      * Update state
      */
-    setCharacters(
-      filteredCharacters
-    );
+    setCharacters(filteredCharacters);
 
     /**
      * Jika karakter aktif
      * ikut dihapus
      */
-    if (
-      activeChar?.id ===
-      charId
-    ) {
-      setActiveChar(
-        filteredCharacters[0] ||
-          null
-      );
+    if (activeChar?.id === charId) {
+      setActiveChar(filteredCharacters[0] || null);
     }
   };
 
-const handleResetChats =
-  () => {
+  const handleResetChats = () => {
     /**
      * Hapus semua chat history
      */
-    characters.forEach(
-      (char) => {
-        localStorage.removeItem(
-          getChatStorageKey(
-            char.id
-          )
-        );
-      }
-    );
+    characters.forEach((char) => {
+      localStorage.removeItem(getChatStorageKey(char.id));
+    });
 
     /**
      * Reset active char
      */
     if (activeChar) {
-      const initialMessage =
-        [
-          {
-            id:
-              Date.now(),
+      const initialMessage = [
+        {
+          id: Date.now(),
 
-            role:
-              "character",
+          role: "character",
 
-            text:
-              activeChar.first_mes,
-          },
-        ];
+          text: activeChar.first_mes,
+        },
+      ];
 
-      setMessages(
-        initialMessage
-      );
+      setMessages(initialMessage);
 
       localStorage.setItem(
-        getChatStorageKey(
-          activeChar.id
-        ),
-        JSON.stringify(
-          initialMessage
-        )
+        getChatStorageKey(activeChar.id),
+        JSON.stringify(initialMessage),
       );
     }
 
-    alert(
-      "Semua riwayat chat berhasil dihapus."
-    );
+    alert("Semua riwayat chat berhasil dihapus.");
   };
 
   return (
     <>
-
-      
-
       <div className="flex h-screen bg-slate-950 text-white">
         {/* Sidebar */}
-        
+
         <Sidebar
-          characters={
-            characters
-          }
-          activeChar={
-            activeChar
-          }
-          onSelectCharacter={
-            setActiveChar
-          }
-          handleDeleteCharacter={
-    handleDeleteCharacter}
-          onOpenSettings={() =>
-            setIsSettingsOpen(
-              true
-            )
-          }
-           onAddCharacter={() => {
-    setEditingChar(
-      null
-    );
+          characters={characters}
+          activeChar={activeChar}
+          onSelectCharacter={setActiveChar}
+          handleDeleteCharacter={handleDeleteCharacter}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onAddCharacter={() => {
+            setEditingChar(null);
 
-    setIsCharacterModalOpen(
-      true
-    );
-  }}
-onEditCharacter={(
-    char
-  ) => {
-    setEditingChar(
-      char
-    );
+            setIsCharacterModalOpen(true);
+          }}
+          onEditCharacter={(char) => {
+            setEditingChar(char);
 
-    setIsCharacterModalOpen(
-      true
-    );
-  }}          
+            setIsCharacterModalOpen(true);
+          }}
         />
-        
 
         {/* Main Chat */}
         <main className="flex flex-1 flex-col">
           {/* Header */}
           {activeChar && (
-  <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900 px-6 py-4">
-    <img
-      src={
-        activeChar.avatar
-      }
-      alt={
-        activeChar.name
-      }
-      className="h-12 w-12 rounded-full object-cover"
-    />
+            <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900 px-6 py-4">
+              <img
+                src={activeChar.avatar}
+                alt={activeChar.name}
+                className="h-12 w-12 rounded-full object-cover"
+              />
 
-    <div>
-      <h1 className="text-lg font-semibold">
-        {
-          activeChar.name
-        }
-      </h1>
+              <div>
+                <h1 className="text-lg font-semibold">{activeChar.name}</h1>
 
-      <p className="text-sm text-slate-400">
-        {
-          activeChar.personality
-        }
-      </p>
-    </div>
-  </header>
-)}
+                <p className="text-sm text-slate-400">
+                  {activeChar.personality}
+                </p>
+              </div>
+            </header>
+          )}
 
           {/* Chat Area */}
           <section className="flex-1 overflow-y-auto p-5">
             <div className="flex flex-col gap-4">
-              {messages.map(
-                (
-                  message
-                ) => (
-                  <ChatBubble
-                    key={
-                      message.id
-                    }
-                    message={
-                      message
-                    }
-                  />
-                )
-              )}
+              {messages.map((message) => (
+                <ChatBubble key={message.id} message={message} />
+              ))}
 
               {/* Typing */}
               {isLoading && (
                 <ChatBubble
                   message={{
-                    role:
-                      "character",
-                    text:
-                      "Typing...",
+                    role: "character",
+                    text: "Typing...",
                   }}
                 />
               )}
@@ -674,55 +421,26 @@ onEditCharacter={(
           </section>
 
           {/* Input */}
-          <ChatInput
-            onSend={
-              handleSendMessage
-            }
-            disabled={
-              isLoading
-            }
-          />
+          <ChatInput onSend={handleSendMessage} disabled={isLoading} />
 
           {/* Character Modal */}
           <CharacterModal
-  isOpen={
-    isCharacterModalOpen
-  }
-  onClose={() =>
-    setIsCharacterModalOpen(
-      false
-    )
-  }
-  editingChar={
-    editingChar
-  }
-  onSave={
-    handleSaveCharacter
-  }
-/>
+            isOpen={isCharacterModalOpen}
+            onClose={() => setIsCharacterModalOpen(false)}
+            editingChar={editingChar}
+            onSave={handleSaveCharacter}
+          />
         </main>
       </div>
 
       {/* Settings Modal */}
       <SettingsModal
-  isOpen={
-    isSettingsOpen
-  }
-  onClose={() =>
-    setIsSettingsOpen(
-      false
-    )
-  }
-  settings={
-    settings
-  }
-  setSettings={
-    setSettings
-  }
-  onResetChats={
-    handleResetChats
-  }
-/>
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        setSettings={setSettings}
+        onResetChats={handleResetChats}
+      />
     </>
   );
 }

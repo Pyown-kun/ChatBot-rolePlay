@@ -1,10 +1,7 @@
 import { useState } from "react";
 
-function ChatInput({
-  onSend,
-}) {
-  const [text, setText] =
-    useState("");
+function ChatInput({ onSend }) {
+  const [text, setText] = useState("");
 
   const handleSubmit = () => {
     if (!text.trim()) return;
@@ -13,9 +10,7 @@ function ChatInput({
     setText("");
   };
 
-  const handleKeyDown = (
-    e
-  ) => {
+  const handleKeyDown = (e) => {
     if (e.key === "Enter") {
       handleSubmit();
     }
@@ -28,21 +23,13 @@ function ChatInput({
           type="text"
           value={text}
           placeholder="Tulis pesan..."
-          onChange={(e) =>
-            setText(
-              e.target.value
-            )
-          }
-          onKeyDown={
-            handleKeyDown
-          }
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
           className="flex-1 rounded-full bg-slate-800 px-5 py-3 outline-none"
         />
 
         <button
-          onClick={
-            handleSubmit
-          }
+          onClick={handleSubmit}
           className="rounded-full bg-indigo-600 px-5 py-3 font-medium"
         >
           Kirim

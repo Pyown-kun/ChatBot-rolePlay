@@ -5,13 +5,9 @@ function SettingsModal({
   setSettings,
   onResetChats,
 }) {
-  if (!isOpen)
-    return null;
+  if (!isOpen) return null;
 
-  const handleChange = (
-    key,
-    value
-  ) => {
+  const handleChange = (key, value) => {
     setSettings((prev) => ({
       ...prev,
       [key]: value,
@@ -20,12 +16,7 @@ function SettingsModal({
 
   // save ke localStorage
   const handleSave = () => {
-    localStorage.setItem(
-      "api_config",
-      JSON.stringify(
-        settings
-      )
-    );
+    localStorage.setItem("api_config", JSON.stringify(settings));
 
     onClose();
   };
@@ -35,14 +26,9 @@ function SettingsModal({
       <div className="w-full max-w-lg rounded-3xl bg-slate-900 p-6 text-white shadow-2xl">
         {/* Header */}
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-xl font-bold">
-            API Settings
-          </h2>
+          <h2 className="text-xl font-bold">API Settings</h2>
 
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white"
-          >
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
             ✕
           </button>
         </div>
@@ -50,53 +36,29 @@ function SettingsModal({
         <div className="space-y-4">
           {/* Provider */}
           <div>
-            <label className="mb-2 block text-sm">
-              API Provider
-            </label>
+            <label className="mb-2 block text-sm">API Provider</label>
 
             <select
-              value={
-                settings.provider
-              }
-              onChange={(e) =>
-                handleChange(
-                  "provider",
-                  e.target.value
-                )
-              }
+              value={settings.provider}
+              onChange={(e) => handleChange("provider", e.target.value)}
               className="w-full rounded-xl bg-slate-800 px-4 py-3 outline-none"
             >
-              <option value="openai">
-                OpenAI
-              </option>
+              <option value="openai">OpenAI</option>
 
-              <option value="openrouter">
-                OpenRouter
-              </option>
+              <option value="openrouter">OpenRouter</option>
 
-              <option value="custom">
-                Custom API
-              </option>
+              <option value="custom">Custom API</option>
             </select>
           </div>
 
           {/* API KEY */}
           <div>
-            <label className="mb-2 block text-sm">
-              API Key
-            </label>
+            <label className="mb-2 block text-sm">API Key</label>
 
             <input
               type="password"
-              value={
-                settings.apiKey
-              }
-              onChange={(e) =>
-                handleChange(
-                  "apiKey",
-                  e.target.value
-                )
-              }
+              value={settings.apiKey}
+              onChange={(e) => handleChange("apiKey", e.target.value)}
               placeholder="sk-xxxx"
               className="w-full rounded-xl bg-slate-800 px-4 py-3 outline-none"
             />
@@ -104,22 +66,12 @@ function SettingsModal({
 
           {/* URL */}
           <div>
-            <label className="mb-2 block text-sm">
-              Base URL /
-              Endpoint
-            </label>
+            <label className="mb-2 block text-sm">Base URL / Endpoint</label>
 
             <input
               type="text"
-              value={
-                settings.baseUrl
-              }
-              onChange={(e) =>
-                handleChange(
-                  "baseUrl",
-                  e.target.value
-                )
-              }
+              value={settings.baseUrl}
+              onChange={(e) => handleChange("baseUrl", e.target.value)}
               placeholder="https://api.openai.com/v1"
               className="w-full rounded-xl bg-slate-800 px-4 py-3 outline-none"
             />
@@ -127,21 +79,12 @@ function SettingsModal({
 
           {/* MODEL */}
           <div>
-            <label className="mb-2 block text-sm">
-              Model Name
-            </label>
+            <label className="mb-2 block text-sm">Model Name</label>
 
             <input
               type="text"
-              value={
-                settings.model
-              }
-              onChange={(e) =>
-                handleChange(
-                  "model",
-                  e.target.value
-                )
-              }
+              value={settings.model}
+              onChange={(e) => handleChange("model", e.target.value)}
               placeholder="gpt-4o"
               className="w-full rounded-xl bg-slate-800 px-4 py-3 outline-none"
             />
@@ -157,25 +100,19 @@ function SettingsModal({
         </button>
 
         <div className="mt-6 border-t border-slate-700 pt-4">
-  <p className="mb-3 text-sm text-slate-400">
-    Chat Management
-  </p>
+          <p className="mb-3 text-sm text-slate-400">Chat Management</p>
 
-  <button
-    onClick={
-      onResetChats
-    }
-    className="w-full rounded-lg bg-red-600 px-4 py-3 font-medium transition hover:bg-red-700"
-  >
-    Reset Semua Chat
-  </button>
+          <button
+            onClick={onResetChats}
+            className="w-full rounded-lg bg-red-600 px-4 py-3 font-medium transition hover:bg-red-700"
+          >
+            Reset Semua Chat
+          </button>
 
-  <p className="mt-2 text-xs text-slate-500">
-    Menghapus seluruh riwayat chat
-    dan menyisakan pesan awal
-    karakter.
-  </p>
-</div>
+          <p className="mt-2 text-xs text-slate-500">
+            Menghapus seluruh riwayat chat dan menyisakan pesan awal karakter.
+          </p>
+        </div>
       </div>
     </div>
   );
