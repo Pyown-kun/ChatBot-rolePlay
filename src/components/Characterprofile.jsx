@@ -1,11 +1,13 @@
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, Download } from "lucide-react";
 import { useState } from "react";
 import ConfirmModal from "./ConfirmModal";
+import ImportExportToast from "./ImportExportToast";
 
-function CharacterProfile({ character, onClose, onDelete }) {
+function CharacterProfile({ character, onClose, onDelete, characters }) {
   if (!character) return null;
 
   const [showConfirm, setShowConfirm] = useState(false);
+  const [toast, setToast] = useState(null); // { type: "export", characterName }
 
   const { name, avatar, description, personality, role } = character;
 
@@ -19,6 +21,22 @@ function CharacterProfile({ character, onClose, onDelete }) {
     setShowConfirm(false);
     onDelete(character.id);
     onClose();
+  };
+
+  // Export karakter ini → tampilkan toast → auto close
+  const handleExportSingle = () => {
+    const blob = new Blob([JSON.stringify([character], null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${name.toLowerCase().replace(/\s+/g, "_")}_character.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Tampilkan toast — onDone akan close modal
+    setToast({ type: "export", characterName: name });
   };
 
   return (
@@ -41,7 +59,7 @@ function CharacterProfile({ character, onClose, onDelete }) {
             ))}
           </div>
 
-          {/* Scrollable content area */}
+          {/* Scrollable content */}
           <div className="overflow-y-auto flex-1 relative p-6 pl-12">
             {/* Close button */}
             <div className="absolute top-4 right-4 z-30">
@@ -53,7 +71,7 @@ function CharacterProfile({ character, onClose, onDelete }) {
               </button>
             </div>
 
-            {/* Polaroid photo + name */}
+            {/* Polaroid */}
             <div className="flex flex-col items-center mb-6">
               <div className="relative">
                 <div
@@ -77,7 +95,6 @@ function CharacterProfile({ character, onClose, onDelete }) {
                   <div className="text-center mt-2 text-[#3a2f1f] text-sm font-medium">{name}</div>
                 </div>
               </div>
-
               {(role || character.profession) && (
                 <div className="mt-4">
                   <div className="inline-block px-5 py-2 bg-gradient-to-r from-[#ff6b6b] to-[#ffa94d] text-white rounded-full text-sm font-bold shadow-lg border-2 border-white transform -rotate-1">
@@ -87,7 +104,7 @@ function CharacterProfile({ character, onClose, onDelete }) {
               )}
             </div>
 
-            {/* Name heading */}
+            {/* Name */}
             <div className="mb-4">
               <h2 className="text-3xl font-bold text-[#2d1f10] mb-1 relative inline-block">
                 {name}
@@ -131,12 +148,6 @@ function CharacterProfile({ character, onClose, onDelete }) {
             {/* Opening line */}
             {character.first_mes && (
               <div className="bg-white/80 rounded-lg p-5 border-2 border-[#c9a875] shadow-md relative">
-                <div
-                  className="absolute inset-0 opacity-5 pointer-events-none rounded-lg"
-                  style={{
-                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E\")",
-                  }}
-                />
                 <div className="absolute inset-0 opacity-5 pointer-events-none rounded-lg">
                   <div className="h-full flex flex-col justify-evenly px-2">
                     {[...Array(6)].map((_, i) => (
@@ -153,27 +164,55 @@ function CharacterProfile({ character, onClose, onDelete }) {
                 </p>
               </div>
             )}
-
-          {/* Delete button — always visible at bottom */}
-          <button
-            onClick={() => setShowConfirm(true)}
-            className="flex-shrink-0 flex items-center justify-center w-full mt-5 py-4 bg-[#c74440] hover:bg-[#a83632] text-white transition-colors z-20 gap-2 font-bold"
-            style={{ borderRadius: "16px" }}
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
           </div>
 
+          {/* Bottom bar — Export + Delete */}
+          <div
+            className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-t-2 border-[#c9a875]/40 z-20"
+            style={{
+              background: "linear-gradient(to bottom, transparent, rgba(139,111,71,0.1))",
+              borderRadius: "0 0 16px 16px",
+            }}
+          >
+            <button
+              onClick={handleExportSingle}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-[#c9a875] text-[#2d1f10] font-medium transition hover:bg-[#ecdfc0] shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              <span className="text-sm">Export</span>
+            </button>
+
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-white transition-all shadow-lg border-2 border-white hover:scale-[1.01]"
+              style={{ background: "linear-gradient(135deg, #c74440, #a83632)" }}
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="text-sm">Hapus</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Confirm delete modal */}
+      {/* Confirm delete */}
       <ConfirmModal
         isOpen={showConfirm}
         message="Apakah Anda yakin ingin menghapus karakter ini?"
         onConfirm={handleDeleteConfirmed}
         onCancel={() => setShowConfirm(false)}
       />
+
+      {/* Toast — auto close profile after export */}
+      {toast && (
+        <ImportExportToast
+          type={toast.type}
+          characterName={toast.characterName}
+          onDone={() => {
+            setToast(null);
+            onClose();
+          }}
+        />
+      )}
     </>
   );
 }

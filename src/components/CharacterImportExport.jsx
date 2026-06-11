@@ -1,97 +1,37 @@
-import React from "react";
+// CharacterImportExport.jsx
+// Ekspor dua fungsi yang bisa dipakai langsung di CharacterModal (import)
+// dan CharacterProfile (export) tanpa render UI sendiri.
 
-function CharacterImportExport({
-  characters,
-  onImport,
-}) {
-  const handleExport =
-    () => {
-      const blob =
-        new Blob(
-          [
-            JSON.stringify(
-              characters,
-              null,
-              2
-            ),
-          ],
-          {
-            type: "application/json",
-          }
-        );
+export function useCharacterExport(characters) {
+  const handleExport = () => {
+    const blob = new Blob([JSON.stringify(characters, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "characters_backup.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
-      const url =
-        URL.createObjectURL(
-          blob
-        );
-
-      const a =
-        document.createElement(
-          "a"
-        );
-
-      a.href = url;
-
-      a.download =
-        "characters_backup.json";
-
-      a.click();
-
-      URL.revokeObjectURL(
-        url
-      );
-    };
-
-  const handleImport =
-    async (e) => {
-      const file =
-        e.target.files[0];
-
-      if (!file)
-        return;
-
-      try {
-        const text =
-          await file.text();
-
-        const parsed =
-          JSON.parse(text);
-
-        onImport(parsed);
-      } catch (
-        error
-      ) {
-        alert(
-          "File invalid"
-        );
-      }
-    };
-
-  return (
-    <div className="flex gap-2">
-      <button
-        onClick={
-          handleExport
-        }
-        className="rounded-xl bg-slate-700 px-4 py-2 text-white"
-      >
-        Export
-      </button>
-
-      <label className="cursor-pointer rounded-xl bg-indigo-600 px-4 py-2 text-white">
-        Import
-
-        <input
-          type="file"
-          accept=".json"
-          hidden
-          onChange={
-            handleImport
-          }
-        />
-      </label>
-    </div>
-  );
+  return { handleExport };
 }
 
-export default CharacterImportExport;
+export function useCharacterImport(onImport) {
+  const handleImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      onImport(parsed);
+      // reset input so same file can be re-imported
+      e.target.value = "";
+    } catch (error) {
+      alert("File invalid — pastikan format JSON benar.");
+    }
+  };
+
+  return { handleImport };
+}

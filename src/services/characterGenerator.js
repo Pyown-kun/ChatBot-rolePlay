@@ -30,14 +30,13 @@ Format:
 {
   "description": "",
   "first_mes": "",
-  "scenario": ""
 }
 
 Aturan:
 - Gunakan bahasa Indonesia.
-- description maksimal 80 kata.
-- scenario maksimal 80 kata.
+- description maksimal 15 kata.
 - first_mes natural seperti manusia.
+- first_mes maksimal 10 kata.
 - Sesuaikan profesi dengan sifat.
 - Jangan terlalu formal.
 - Jangan terlalu panjang.
@@ -183,9 +182,6 @@ if (!text) {
       first_mes:
         parsed.first_mes ||
         "",
-      scenario:
-        parsed.scenario ||
-        "",
     };
   } catch (error) {
     console.error(
@@ -198,8 +194,6 @@ if (!text) {
       description: `${name} adalah seorang ${profession} dengan sifat ${traits?.join(", ")}.`,
       first_mes:
         "Hai, senang bertemu denganmu.",
-      scenario:
-        "Kalian baru saja bertemu dan mulai berbicara.",
     };
   }
 }

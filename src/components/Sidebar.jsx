@@ -57,7 +57,7 @@ function Sidebar({
               className="text-xl tracking-widest text-[#fff5e6] font-bold"
               style={{ textShadow: "1px 1px 3px rgba(0,0,0,0.4)" }}
             >
-              ROLEPLAY CHATS
+              PYOWN CAFE
             </h1>
             <button
               onClick={onOpenSettings}
@@ -192,7 +192,7 @@ function Sidebar({
             className="text-lg tracking-wide text-[#2d1f10] font-bold"
             style={{ textShadow: "1px 1px 2px rgba(255,255,255,0.3)" }}
           >
-            ROLEPLAY CHATS
+            PYOWN CAFE
           </h1>
           <button
             onClick={onOpenSettings}

@@ -18,7 +18,7 @@ import { characterService } from "./services/characterService";
 
 import { chatService } from "./services/chatService";
 
-import CharacterImportExport from "./components/CharacterImportExport";
+// import CharacterImportExport from "./components/CharacterImportExport";
 
 import { autoBackup } from "./services/backupService";
 
@@ -475,6 +475,10 @@ function App() {
         editingChar={editingChar}
         onSave={handleSaveCharacter}
         settings={settings}
+             characters={characters}
+        onImport={(imported) => {
+          setCharacters((prev) => [...prev, ...imported]);
+        }}
       />
     </main>
   );
@@ -539,6 +543,7 @@ function App() {
           character={activeChar}
           onClose={() => setIsProfileOpen(false)}
           onDelete={handleDeleteCharacter}
+          characters={characters}
         />
       )}
 
@@ -559,6 +564,9 @@ function App() {
           editingChar={editingChar}
           onSave={handleSaveCharacter}
           settings={settings}
+           characters={characters}
+          onImport={(imported) => {
+            setCharacters((prev) => [...prev, ...imported]);}}
         />
       )}
     </>

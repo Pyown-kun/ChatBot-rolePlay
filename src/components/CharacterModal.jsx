@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { X, Upload } from "lucide-react";
 
 import professions from "../data/professions";
 import personalities from "../data/personalities";
@@ -8,65 +8,44 @@ import ProfessionDropdown from "./ProfessionDropdown";
 import MultiSelectChips from "./MultiSelectChips";
 
 import { generateCharacter } from "../services/characterGenerator";
+import { useCharacterImport } from "./CharacterImportExport";
+import ImportExportToast from "./ImportExportToast";
 
-function CharacterModal({ isOpen, onClose, editingChar, onSave, settings }) {
+function CharacterModal({ isOpen, onClose, editingChar, onSave, settings, onImport, characters }) {
+  const importInputRef = useRef(null);
+  const [toast, setToast] = useState(null);
+
+  // Wrap onImport để hiện toast rồi auto close
+  const { handleImport } = useCharacterImport((imported) => {
+    onImport(imported);
+    setToast({ type: "import" });
+  });
+
   const handleAutoGenerate = async () => {
-    if (!formData.profession) {
-      alert("Pilih profession terlebih dahulu.");
-      return;
-    }
-
-    if (formData.traits.length === 0) {
-      alert("Pilih minimal 1 trait.");
-      return;
-    }
-
-    if (!settings?.apiKey) {
-      alert("API Key belum diisi.");
-      return;
-    }
-
+    if (!formData.profession) { alert("Pilih profession terlebih dahulu."); return; }
+    if (formData.traits.length === 0) { alert("Pilih minimal 1 trait."); return; }
+    if (!settings?.apiKey) { alert("API Key belum diisi."); return; }
     try {
-      setIsGenerating(true);
-
       const generated = await generateCharacter({
         config: settings,
-
         profession: formData.profession,
-
         traits: formData.traits,
-
         name: formData.name || "Unknown",
       });
-
       setFormData((prev) => ({
         ...prev,
-
         description: generated.description,
-
         first_mes: generated.first_mes,
-
-        scenario: generated.scenario,
       }));
     } catch (error) {
       console.error(error);
-
       alert("Gagal generate character.");
-    } finally {
-      setIsGenerating(false);
     }
   };
 
-  const [isGenerating, setIsGenerating] = useState(false);
-
   const initialForm = {
-    name: "",
-    avatar: "",
-    description: "",
-    profession: "",
-    traits: [],
-    first_mes: "",
-    scenario: "",
+    name: "", avatar: "", description: "",
+    profession: "", traits: [], first_mes: "",
   };
 
   const [formData, setFormData] = useState(initialForm);
@@ -85,7 +64,6 @@ function CharacterModal({ isOpen, onClose, editingChar, onSave, settings }) {
         profession: editingChar.profession || "",
         traits: editingChar.traits || [],
         first_mes: editingChar.first_mes || "",
-        scenario: editingChar.scenario || "",
       });
       return;
     }
@@ -110,22 +88,19 @@ function CharacterModal({ isOpen, onClose, editingChar, onSave, settings }) {
           borderRadius: "24px",
           maxHeight: "90vh",
           background: "linear-gradient(135deg, #f5ead2, #ecdfc0)",
-          boxShadow:
-            "0 20px 60px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3)",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3)",
         }}
       >
         {/* Ring binding holes */}
         <div className="absolute left-4 top-0 bottom-0 flex flex-col justify-evenly items-center pointer-events-none z-10">
           {[...Array(7)].map((_, i) => (
-            <div
-              key={i}
-              className="w-4 h-4 rounded-full bg-[#5a4a3a] border-2 border-[#3a2f1f] shadow-lg"
-            />
+            <div key={i} className="w-4 h-4 rounded-full bg-[#5a4a3a] border-2 border-[#3a2f1f] shadow-lg" />
           ))}
         </div>
 
         {/* Scrollable content */}
         <div className="overflow-y-auto flex-1 relative p-6 pl-12">
+
           {/* Close button */}
           <div className="absolute top-4 right-4 z-30">
             <button
@@ -145,6 +120,7 @@ function CharacterModal({ isOpen, onClose, editingChar, onSave, settings }) {
           </div>
 
           <div className="space-y-4">
+
             {/* Name */}
             <div className="bg-white/80 rounded-lg p-4 border-2 border-[#c9a875] shadow-md relative overflow-hidden">
               <div className="absolute top-0 right-0 w-16 h-16 bg-[#ff6b6b] opacity-10 rounded-full -translate-y-8 translate-x-8" />
@@ -184,9 +160,7 @@ function CharacterModal({ isOpen, onClose, editingChar, onSave, settings }) {
                         src={formData.avatar}
                         alt="preview"
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                        }}
+                        onError={(e) => { e.target.style.display = "none"; }}
                       />
                     </div>
                     <div className="text-center mt-1 text-[#3a2f1f] text-xs">
@@ -228,17 +202,13 @@ function CharacterModal({ isOpen, onClose, editingChar, onSave, settings }) {
               />
             </div>
 
+            {/* Generate button */}
             <button
               onClick={handleAutoGenerate}
-              disabled={isGenerating}
-              className={`w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg border-2 border-white hover:scale-[1.01] active:scale-[0.99]"
-              style={{ background: "linear-gradient(135deg, #ffa94d, #ff6b6b)" }} ${
-                isGenerating
-                  ? "cursor-not-allowed bg-slate-600"
-                  : "bg-orange-400 hover:bg-red-500"
-              }`}
+              className="w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg border-2 border-white hover:scale-[1.01] active:scale-[0.99]"
+              style={{ background: "linear-gradient(135deg, #ffa94d, #ff6b6b)" }}
             >
-              {isGenerating ? "Generating..." : "✨ Generate Character"}
+              ✨ Generate Character
             </button>
 
             {/* Description */}
@@ -287,33 +257,35 @@ function CharacterModal({ isOpen, onClose, editingChar, onSave, settings }) {
               />
             </div>
 
-            {/* Scenario */}
-            <div className="bg-white/80 rounded-lg p-4 border-2 border-[#c9a875] shadow-md">
-              <label className={labelClass}>
-                <span className="w-2 h-2 bg-[#c77dff] rounded-full inline-block" />
-                Scenario
-              </label>
-              <textarea
-                name="scenario"
-                value={formData.scenario}
-                onChange={handleChange}
-                rows={3}
-                placeholder="User bertemu..."
-                className={textareaClass}
-              />
-            </div>
           </div>
         </div>
 
         {/* Footer — always visible, outside scroll */}
         <div
-          className="flex-shrink-0 flex justify-end gap-3 px-6 py-4 border-t-2 border-[#c9a875]/40"
+          className="flex-shrink-0 flex items-center gap-3 px-6 py-4 border-t-2 border-[#c9a875]/40"
           style={{
-            background:
-              "linear-gradient(to bottom, transparent, rgba(139,111,71,0.1))",
+            background: "linear-gradient(to bottom, transparent, rgba(139,111,71,0.1))",
             borderRadius: "0 0 16px 16px",
           }}
         >
+          {/* Import button — left side */}
+          <label
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-[#c9a875] text-[#2d1f10] font-medium transition hover:bg-[#ecdfc0] shadow-md cursor-pointer"
+            title="Import karakter dari file JSON"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="text-sm">Import</span>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".json"
+              hidden
+              onChange={handleImport}
+            />
+          </label>
+
+          <div className="flex-1" />
+
           <button
             onClick={onClose}
             className="px-5 py-2.5 rounded-xl border-2 border-[#c9a875] text-[#2d1f10] font-medium transition hover:bg-[#ecdfc0] shadow-md"
@@ -330,24 +302,15 @@ function CharacterModal({ isOpen, onClose, editingChar, onSave, settings }) {
         </div>
       </div>
 
-      {/* Generate overlay */}
-      {isGenerating && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-black/70 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4 rounded-2xl bg-orange-100 px-8 py-6 shadow-2xl border border-slate-700">
-            {/* Spinner */}
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-red-500 border-t-transparent" />
-
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-black">
-                Generating Character...
-              </h3>
-
-              <p className="text-sm text-black-800">
-                Sedang membuat deskripsi, skenario, dan first message
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Toast — auto close modal after import */}
+      {toast && (
+        <ImportExportToast
+          type={toast.type}
+          onDone={() => {
+            setToast(null);
+            onClose();
+          }}
+        />
       )}
     </div>
   );
