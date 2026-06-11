@@ -12,10 +12,21 @@ function CharacterProfile({ character, onClose, onDelete, characters }) {
   const { name, avatar, description, personality, role } = character;
 
   const traits = personality
-    ? personality.split(/[,;]+/).map((t) => t.trim()).filter(Boolean).slice(0, 6)
+    ? personality
+        .split(/[,;]+/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .slice(0, 6)
     : [];
 
-  const traitColors = ["#ff6b6b", "#ffa94d", "#ffd93d", "#6bcf7f", "#4d9de0", "#c77dff"];
+  const traitColors = [
+    "#ff6b6b",
+    "#ffa94d",
+    "#ffd93d",
+    "#6bcf7f",
+    "#4d9de0",
+    "#c77dff",
+  ];
 
   const handleDeleteConfirmed = () => {
     setShowConfirm(false);
@@ -48,14 +59,18 @@ function CharacterProfile({ character, onClose, onDelete, characters }) {
             border: "8px solid #8b6f47",
             borderRadius: "24px",
             maxHeight: "90vh",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3)",
+            boxShadow:
+              "0 20px 60px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3)",
             background: "linear-gradient(135deg, #f5ead2, #ecdfc0)",
           }}
         >
           {/* Ring binding holes */}
           <div className="absolute left-4 top-0 bottom-0 flex flex-col justify-evenly items-center pointer-events-none z-10">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="w-4 h-4 rounded-full bg-[#5a4a3a] border-2 border-[#3a2f1f] shadow-lg" />
+              <div
+                key={i}
+                className="w-4 h-4 rounded-full bg-[#5a4a3a] border-2 border-[#3a2f1f] shadow-lg"
+              />
             ))}
           </div>
 
@@ -78,21 +93,28 @@ function CharacterProfile({ character, onClose, onDelete, characters }) {
                   className="absolute -top-2 left-1/2 -translate-x-1/2 w-20 h-6 opacity-70 z-10"
                   style={{
                     backgroundColor: "#ffa94d",
-                    backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.3) 10px, rgba(255,255,255,0.3) 20px)",
+                    backgroundImage:
+                      "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.3) 10px, rgba(255,255,255,0.3) 20px)",
                     transform: "rotate(-3deg)",
                   }}
                 />
                 <div className="bg-white p-3 pb-8 rounded-sm shadow-2xl transform -rotate-2 hover:rotate-0 transition-transform">
                   <div className="w-44 h-44 rounded-sm overflow-hidden bg-[#f5ead2]">
                     {avatar ? (
-                      <img src={avatar} alt={name} className="w-full h-full object-cover" />
+                      <img
+                        src={avatar}
+                        alt={name}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-6xl text-[#8b6f47] font-bold">
                         {name[0]}
                       </div>
                     )}
                   </div>
-                  <div className="text-center mt-2 text-[#3a2f1f] text-sm font-medium">{name}</div>
+                  <div className="text-center mt-2 text-[#3a2f1f] text-sm font-medium">
+                    {name}
+                  </div>
                 </div>
               </div>
               {(role || character.profession) && (
@@ -120,7 +142,9 @@ function CharacterProfile({ character, onClose, onDelete, characters }) {
                   <span className="w-2 h-2 bg-[#ff6b6b] rounded-full" />
                   Description
                 </h3>
-                <p className="text-sm text-[#3a2f1f] leading-relaxed">{description}</p>
+                <p className="text-sm text-[#3a2f1f] leading-relaxed">
+                  {description}
+                </p>
               </div>
             )}
 
@@ -136,7 +160,9 @@ function CharacterProfile({ character, onClose, onDelete, characters }) {
                     <span
                       key={idx}
                       className="px-3 py-1.5 text-white rounded-full text-xs font-bold shadow-md transform hover:scale-105 transition-transform"
-                      style={{ backgroundColor: traitColors[idx % traitColors.length] }}
+                      style={{
+                        backgroundColor: traitColors[idx % traitColors.length],
+                      }}
                     >
                       {trait}
                     </span>
@@ -170,10 +196,12 @@ function CharacterProfile({ character, onClose, onDelete, characters }) {
           <div
             className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-t-2 border-[#c9a875]/40 z-20"
             style={{
-              background: "linear-gradient(to bottom, transparent, rgba(139,111,71,0.1))",
+              background:
+                "linear-gradient(to bottom, transparent, rgba(139,111,71,0.1))",
               borderRadius: "0 0 16px 16px",
             }}
           >
+            {!character.locked &&(
             <button
               onClick={handleExportSingle}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-[#c9a875] text-[#2d1f10] font-medium transition hover:bg-[#ecdfc0] shadow-md"
@@ -181,15 +209,20 @@ function CharacterProfile({ character, onClose, onDelete, characters }) {
               <Download className="w-4 h-4" />
               <span className="text-sm">Export</span>
             </button>
+)}
 
-            <button
-              onClick={() => setShowConfirm(true)}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-white transition-all shadow-lg border-2 border-white hover:scale-[1.01]"
-              style={{ background: "linear-gradient(135deg, #c74440, #a83632)" }}
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="text-sm">Hapus</span>
-            </button>
+            {!character.locked && (
+              <button
+                onClick={() => setShowConfirm(true)}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-white transition-all shadow-lg border-2 border-white hover:scale-[1.01]"
+                style={{
+                  background: "linear-gradient(135deg, #c74440, #a83632)",
+                }}
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="text-sm">Hapus</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

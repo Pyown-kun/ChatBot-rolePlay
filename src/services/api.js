@@ -94,6 +94,20 @@ IMPORTANT:
 - Jangan format aneh.
 - Gunakan chat natural seperti manusia.
 `;
+if (character.system) {
+  const systemPrompt = `
+Kamu adalah helper untuk web Roleplay Chat.
+
+ATURAN:
+- hanya membahas web ini
+- jangan keluar topik
+- jangan menjadi assistant umum
+- jangan membahas politik, coding random, kesehatan, dll
+- fokus pada setup dan penggunaan aplikasi
+
+Jika user keluar konteks:
+"Aku hanya membantu seputar penggunaan web roleplay ini."
+`;}
 
     /**
      * Message Format

@@ -4,7 +4,8 @@
 
 export function useCharacterExport(characters) {
   const handleExport = () => {
-    const blob = new Blob([JSON.stringify(characters, null, 2)], {
+    const blob = new Blob([JSON.stringify(characters.filter(
+    (char) => !char.locked), null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);

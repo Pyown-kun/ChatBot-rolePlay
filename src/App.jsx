@@ -4,7 +4,7 @@ import ChatBubble from "./components/ChatBubble";
 import ChatInput from "./components/ChatInput";
 import SettingsModal from "./components/SettingsModal";
 import CharacterProfile from "./components/CharacterProfile";
-import initialCharacters from "./data/initialCharacters";
+
 import { sendRoleplayMessage } from "./services/api";
 import CharacterModal from "./components/CharacterModal";
 import {
@@ -18,11 +18,27 @@ import { characterService } from "./services/characterService";
 
 import { chatService } from "./services/chatService";
 
-// import CharacterImportExport from "./components/CharacterImportExport";
+import systemCharacter from "./data/systemCharacter";
+
+import { getSystemReply } from "./services/systemAssistant";
 
 import { autoBackup } from "./services/backupService";
 
 const getChatStorageKey = (charId) => `chat_history_${charId}`;
+
+function sortCharacters(characters = []) {
+  return [...characters].sort((a, b) => {
+    // SuChan / system character selalu paling atas
+    if (a.system) return -1;
+    if (b.system) return 1;
+
+    // locked/permanent di atas karakter biasa
+    if (a.locked && !b.locked) return -1;
+    if (!a.locked && b.locked) return 1;
+
+    return 0;
+  });
+}
 
 function App() {
   // ─── Responsive ───────────────────────────────────────
@@ -56,17 +72,13 @@ function App() {
     const loadCharacters = async () => {
       const saved = await characterService.getAll();
 
-      if (saved.length) {
-        setCharacters(saved);
+      const filtered = saved.filter((char) => !char.system);
 
-        setActiveChar(saved[0]);
-      } else {
-        setCharacters(initialCharacters);
+      const finalChars = [systemCharacter, ...filtered];
 
-        await characterService.bulkSave(initialCharacters);
+      setCharacters(finalChars);
 
-        setActiveChar(initialCharacters[0]);
-      }
+      setActiveChar(finalChars[0]);
     };
 
     loadCharacters();
@@ -109,27 +121,15 @@ function App() {
 
   useEffect(() => {
     const loadCharacters = async () => {
-      try {
-        const saved = await characterService.getAll();
+      const saved = await characterService.getAll();
 
-        if (saved.length) {
-          setCharacters(saved);
+      const filtered = saved.filter((char) => !char.system);
 
-          const savedId = localStorage.getItem("active_character");
+      const finalChars = sortCharacters([systemCharacter, ...filtered]);
 
-          const active = saved.find((c) => c.id === savedId) || saved[0];
+      setCharacters(finalChars);
 
-          setActiveChar(active);
-        } else {
-          setCharacters(initialCharacters);
-
-          await characterService.bulkSave(initialCharacters);
-
-          setActiveChar(initialCharacters[0]);
-        }
-      } catch (error) {
-        console.error("Load character error:", error);
-      }
+      setActiveChar(finalChars[0]);
     };
 
     loadCharacters();
@@ -175,28 +175,63 @@ function App() {
   }, [messages, activeChar]);
 
   const handleImportCharacters = async (imported) => {
-    setCharacters(imported);
+  const filtered = imported.filter(
+    (char) => !char.system && !char.locked
+  );
 
-    await characterService.bulkSave(imported);
+  const finalChars = [systemCharacter, ...filtered];
 
-    setActiveChar(imported[0]);
-  };
+  // Bersihkan SEMUA karakter lama dari DB dulu
+  await characterService.clearAll();
 
+  setCharacters(finalChars);
+
+  // Simpan yang baru (tanpa systemCharacter karena dia tidak perlu di-persist)
+  await characterService.bulkSave(filtered);
+
+  setActiveChar(systemCharacter);
+};
   // ─── Handlers ──────────────────────────────────────────
   const handleSelectCharacter = async (char) => {
     setActiveChar(char);
     if (isMobile) setShowChat(true); // mobile: langsung ke chat setelah pilih karakter
     const knowledge = await loadProfessionKnowledge(char.profession);
-    console.log(knowledge);
   };
 
   const handleSendMessage = async (messageText) => {
     if (!messageText.trim()) return;
 
-    const userMessage = { id: Date.now(), role: "user", text: messageText };
+    const userMessage = {
+      id: Date.now(),
+      role: "user",
+      text: messageText,
+    };
+
     const updatedMessages = [...messages, userMessage];
+
     setMessages(updatedMessages);
 
+    /**
+     * SYSTEM ASSISTANT
+     */
+    if (activeChar?.locked) {
+      const reply = getSystemReply(messageText, settings);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: "character",
+          text: reply,
+        },
+      ]);
+
+      return;
+    }
+
+    /**
+     * NORMAL AI CHARACTER
+     */
     const relevantKnowledge = getRelevantKnowledge(
       activeChar?.profession,
       messageText,
@@ -204,28 +239,34 @@ function App() {
 
     try {
       setIsLoading(true);
-      console.log("ACTIVE CHAR:", activeChar);
-      console.log("PROFESSION:", activeChar?.profession);
-      console.log("TRAITS:", activeChar?.traits);
 
       const aiReply = await sendRoleplayMessage({
         config: settings,
+
         character: activeChar,
+
         messages: updatedMessages,
+
         relevantKnowledge,
       });
 
       const cleanedReply = cleanAiResponse(aiReply);
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now() + 1, role: "character", text: cleanedReply },
-      ]);
-    } catch (error) {
-      console.error(error);
+
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now() + 2,
+          role: "character",
+          text: cleanedReply,
+        },
+      ]);
+    } catch (error) {
+      console.error(error);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 3,
           role: "character",
           text: "Terjadi kesalahan saat menghubungi AI.",
         },
@@ -275,14 +316,23 @@ function App() {
     setIsCharacterModalOpen(false);
   };
 
-  const handleDeleteCharacter = (charId) => {
-    const filtered = characters.filter((char) => char.id !== charId);
-    setCharacters(filtered);
-    if (activeChar?.id === charId) {
-      setActiveChar(filtered[0] || null);
-      if (isMobile) setShowChat(false);
-    }
-  };
+  const handleDeleteCharacter = async (charId) => {
+  const target = characters.find((c) => c.id === charId);
+
+  // Cegah hapus system/locked character
+  if (target?.locked) return;
+
+  // Hapus dari IndexedDB juga, bukan hanya state
+  await characterService.delete(charId);
+
+  const filtered = characters.filter((char) => char.id !== charId);
+  setCharacters(filtered);
+
+  if (activeChar?.id === charId) {
+    setActiveChar(filtered[0] || null);
+    if (isMobile) setShowChat(false);
+  }
+};
 
   const handleResetChats = () => {
     characters.forEach((char) => {
@@ -475,10 +525,8 @@ function App() {
         editingChar={editingChar}
         onSave={handleSaveCharacter}
         settings={settings}
-             characters={characters}
-        onImport={(imported) => {
-          setCharacters((prev) => [...prev, ...imported]);
-        }}
+        characters={characters}
+        onImport={handleImportCharacters}
       />
     </main>
   );
@@ -564,9 +612,10 @@ function App() {
           editingChar={editingChar}
           onSave={handleSaveCharacter}
           settings={settings}
-           characters={characters}
+          characters={characters}
           onImport={(imported) => {
-            setCharacters((prev) => [...prev, ...imported]);}}
+            setCharacters((prev) => [...prev, ...imported]);
+          }}
         />
       )}
     </>
