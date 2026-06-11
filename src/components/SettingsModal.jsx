@@ -79,8 +79,9 @@ function SettingsModal({ isOpen, onClose, settings, setSettings, onResetChats })
                   appearance: "none",
                 }}
               >
-                <option value="openai">OpenAI</option>
                 <option value="openrouter">OpenRouter</option>
+                <option value="gemini">GeminiAI</option>
+                <option value="openai">OpenAI</option>
                 <option value="custom">Custom API</option>
               </select>
             </div>
@@ -110,7 +111,7 @@ function SettingsModal({ isOpen, onClose, settings, setSettings, onResetChats })
                 type="text"
                 value={settings.baseUrl}
                 onChange={(e) => handleChange("baseUrl", e.target.value)}
-                placeholder="https://api.openai.com/v1"
+                placeholder=""
                 className={inputClass}
               />
             </div>

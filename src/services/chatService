@@ -1,0 +1,31 @@
+import { db } from "./db";
+
+export const chatService =
+{
+  async get(charId) {
+    const chat =
+      await db.chats.get(
+        charId
+      );
+
+    return (
+      chat?.messages || []
+    );
+  },
+
+  async save(
+    charId,
+    messages
+  ) {
+    return await db.chats.put(
+      {
+        charId,
+        messages,
+      }
+    );
+  },
+
+  async clearAll() {
+    return await db.chats.clear();
+  },
+};

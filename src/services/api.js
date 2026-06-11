@@ -1,5 +1,7 @@
 // src/services/api.js
 
+// src/services/api.js
+
 export async function sendRoleplayMessage({
   config,
   character,
@@ -7,43 +9,50 @@ export async function sendRoleplayMessage({
   relevantKnowledge,
 }) {
   try {
-    const { apiKey, baseUrl, model, provider } = config;
+    const {
+      apiKey,
+      baseUrl,
+      model,
+      provider,
+    } = config;
 
     if (!apiKey) {
-      throw new Error("API Key belum diisi.");
+      throw new Error(
+        "API Key belum diisi."
+      );
     }
 
     /**
      * System Prompt
      */
-const systemPrompt = `
+    const systemPrompt = `
 IDENTITAS KARAKTER
 
 Nama:
 ${character.name}
 
 Profesi utama:
-${character.profession}
+${character.profession || "Tidak diketahui"}
 
 Sifat:
-${character.traits?.join(", ")}
+${character.traits?.join(", ") || "-"}
 
 Kepribadian:
-${character.personality}
+${character.personality || "-"}
 
 Deskripsi:
-${character.description}
+${character.description || "-"}
 
 Scenario:
-${character.scenario}
+${character.scenario || "-"}
 
 ${
-relevantKnowledge
-  ? `
+  relevantKnowledge
+    ? `
 PENGETAHUAN PROFESIONAL:
 ${relevantKnowledge}
 `
-  : ""
+    : ""
 }
 
 ATURAN WAJIB:
@@ -58,43 +67,36 @@ ${character.profession}
 - teknis
 - profesional
 - percaya diri
+- natural
 - boleh panjang
 
 4. Jika pertanyaan TIDAK BERHUBUNGAN dengan profesimu:
 - jangan menjawab seperti ahli
-- jangan memberi penjelasan panjang
-- jawab pendek (1 sampai 3 kalimat)
-- gunakan pengetahuan umum saja
+- jawab singkat
+- maksimal 1–3 kalimat
+- gunakan pengetahuan umum
 - akui bahwa itu bukan bidangmu
-- jangan terlalu teknis
-- jangan membuat list panjang
-- jangan over-explain
 
-Contoh gaya jawaban:
-"Aku kurang paham soal itu"
-"Setahuku sih begitu, tapi aku bukan ahlinya."
-"Hmm, itu bukan bidangku, mungkin barista atau profesi lain lebih ngerti."
+Contoh:
+"Hmm aku kurang ngerti soal itu."
+"Setahuku sih begitu, tapi itu bukan bidangku."
 
-5. Jika kamu tidak yakin:
-lebih baik bilang tidak tahu daripada mengarang panjang.
+5. Jika tidak yakin:
+lebih baik bilang tidak tahu.
 
-6. Tetap menjadi karakter, jangan berubah jadi AI assistant.
+6. Tetap menjadi karakter.
 
-IMPORTANT RULES:
-- Speak naturally like a human.
-- Do NOT over-explain unless user asks.
-- Stay consistent with your profession.
-- If question is outside your expertise, answer casually and admit limitations.
-- Avoid excessive bullet points.
-- Avoid overly technical explanations unless specifically requested.
-- Never use markdown formatting like **bold**.
-- Never output JSON.
-- Never output arrays or objects.
-- Use plain readable chat text.
+IMPORTANT:
+- Gunakan bahasa Indonesia.
+- Jangan markdown.
+- Jangan bullet berlebihan.
+- Jangan JSON.
+- Jangan format aneh.
+- Gunakan chat natural seperti manusia.
 `;
 
     /**
-     * Format messages
+     * Message Format
      */
     const formattedMessages = [
       {
@@ -103,80 +105,220 @@ IMPORTANT RULES:
       },
 
       ...messages.map((msg) => ({
-        role: msg.role === "character" ? "assistant" : "user",
+        role:
+          msg.role ===
+          "character"
+            ? "assistant"
+            : "user",
 
         content: msg.text,
       })),
     ];
 
     /**
-     * Default URL
+     * Default URLs
      */
     const defaultUrls = {
-      openai: "https://api.openai.com/v1",
+      openai:
+        "https://api.openai.com/v1",
 
-      openrouter: "https://openrouter.ai/api/v1",
+      openrouter:
+        "https://openrouter.ai/api/v1",
+
+      gemini:
+        "https://generativelanguage.googleapis.com/v1beta/openai",
+
+      groq:
+        "https://api.groq.com/openai/v1",
+
+      together:
+        "https://api.together.xyz/v1",
+
+      fireworks:
+        "https://api.fireworks.ai/inference/v1",
     };
 
-    let finalBaseUrl = baseUrl || defaultUrls[provider];
+    /**
+     * Final Base URL
+     */
+    let finalBaseUrl =
+      baseUrl ||
+      defaultUrls[
+        provider
+      ];
 
-    finalBaseUrl = finalBaseUrl.replace(/\/$/, "");
+    finalBaseUrl =
+      finalBaseUrl.replace(
+        /\/$/,
+        ""
+      );
 
-    const endpoint = finalBaseUrl.endsWith("/chat/completions")
-      ? finalBaseUrl
-      : `${finalBaseUrl}/chat/completions`;
+    /**
+     * Endpoint
+     */
+    const endpoint =
+      finalBaseUrl.endsWith(
+        "/chat/completions"
+      )
+        ? finalBaseUrl
+        : `${finalBaseUrl}/chat/completions`;
 
-    console.log("ENDPOINT:", endpoint);
+    /**
+     * Headers
+     */
+    const headers = {
+      "Content-Type":
+        "application/json",
+    };
 
-    console.log("REQUEST BODY:", {
+    /**
+     * Provider Specific Auth
+     */
+    if (
+      provider ===
+      "gemini"
+    ) {
+      headers.Authorization = `Bearer ${apiKey}`;
+    } else {
+      headers.Authorization = `Bearer ${apiKey}`;
+    }
+
+    /**
+     * OpenRouter only headers
+     */
+    if (
+      provider ===
+      "openrouter"
+    ) {
+      headers[
+        "HTTP-Referer"
+      ] =
+        window.location
+          .origin;
+
+      headers[
+        "X-Title"
+      ] =
+        "Roleplay Chat App";
+    }
+
+    /**
+     * Request Body
+     */
+    const requestBody = {
       model,
-      messages: formattedMessages,
-    });
+      messages:
+        formattedMessages,
+      temperature: 0.8,
+    };
+
+    console.log(
+      "ENDPOINT:",
+      endpoint
+    );
+
+    console.log(
+      "PROVIDER:",
+      provider
+    );
+
+    console.log(
+      "REQUEST BODY:",
+      requestBody
+    );
 
     /**
-     * Fetch API
+     * Fetch
      */
-    const response = await fetch(endpoint, {
-      method: "POST",
+    const response =
+      await fetch(
+        endpoint,
+        {
+          method:
+            "POST",
 
-      headers: {
-        "Content-Type": "application/json",
+          headers,
 
-        Authorization: `Bearer ${apiKey}`,
-
-        "HTTP-Referer": window.location.origin,
-
-        "X-Title": "Roleplay Chat App",
-      },
-
-      body: JSON.stringify({
-        model,
-        messages: formattedMessages,
-        temperature: 0.8,
-      }),
-    });
+          body:
+            JSON.stringify(
+              requestBody
+            ),
+        }
+      );
 
     /**
-     * Handle Error
+     * Error Handler
      */
-    if (!response.ok) {
-      const errorData = await response.json();
+    if (
+      !response.ok
+    ) {
+      let errorMessage =
+        "Request gagal";
 
-      console.error("API ERROR:", errorData);
+      try {
+        const errorData =
+          await response.json();
 
-      throw new Error(errorData.error?.message || "Request gagal");
+        console.error(
+          "API ERROR:",
+          errorData
+        );
+
+        errorMessage =
+          errorData.error
+            ?.message ||
+          errorData.message ||
+          errorMessage;
+      } catch {}
+
+      /**
+       * Better Rate Limit Message
+       */
+      if (
+        response.status ===
+        429
+      ) {
+        throw new Error(
+          "Kuota AI habis / rate limit tercapai."
+        );
+      }
+
+      throw new Error(
+        errorMessage
+      );
     }
 
     /**
      * Success
      */
-    const data = await response.json();
+    const data =
+      await response.json();
 
-    console.log("SUCCESS:", data);
+    console.log(
+      "SUCCESS:",
+      data
+    );
 
-    return data.choices?.[0]?.message?.content || "...";
+    /**
+     * OpenAI-compatible parser
+     */
+    const text =
+      data.choices?.[0]
+        ?.message
+        ?.content;
+
+    if (!text) {
+      throw new Error(
+        "AI tidak mengembalikan jawaban."
+      );
+    }
+
+    return text;
   } catch (error) {
-    console.error("FULL ERROR:", error);
+    console.error(
+      "FULL ERROR:",
+      error
+    );
 
     throw error;
   }

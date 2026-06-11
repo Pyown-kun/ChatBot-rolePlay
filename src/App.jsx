@@ -14,19 +14,15 @@ import {
 import { Info } from "lucide-react";
 import { cleanAiResponse } from "./utils/cleanAiResponse";
 
-const getChatStorageKey = (charId) => `chat_history_${charId}`;
+import { characterService } from "./services/characterService";
 
-// Dipindah ke luar komponen agar tidak jadi dependency/re-create setiap render
-const getSavedCharacters = () => {
-  try {
-    const savedCharacters = localStorage.getItem("roleplay_characters");
-    if (savedCharacters) return JSON.parse(savedCharacters);
-    return initialCharacters;
-  } catch (error) {
-    console.error("Gagal membaca karakter:", error);
-    return initialCharacters;
-  }
-};
+import { chatService } from "./services/chatService";
+
+import CharacterImportExport from "./components/CharacterImportExport";
+
+import { autoBackup } from "./services/backupService";
+
+const getChatStorageKey = (charId) => `chat_history_${charId}`;
 
 function App() {
   // ─── Responsive ───────────────────────────────────────
@@ -40,20 +36,43 @@ function App() {
   }, []);
 
   // ─── Character State ───────────────────────────────────
-  const [characters, setCharacters] = useState(getSavedCharacters);
+  const [characters, setCharacters] = useState([]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem("roleplay_characters", JSON.stringify(characters));
-    } catch (error) {
-      console.error("Gagal menyimpan karakter:", error);
-    }
+    if (!characters.length) return;
+
+    const save = async () => {
+      for (const char of characters) {
+        await characterService.save(char);
+      }
+
+      autoBackup(characters);
+    };
+
+    save();
   }, [characters]);
 
-  const [activeChar, setActiveChar] = useState(() => {
-    const saved = getSavedCharacters();
-    return saved[0] || null;
-  });
+  useEffect(() => {
+    const loadCharacters = async () => {
+      const saved = await characterService.getAll();
+
+      if (saved.length) {
+        setCharacters(saved);
+
+        setActiveChar(saved[0]);
+      } else {
+        setCharacters(initialCharacters);
+
+        await characterService.bulkSave(initialCharacters);
+
+        setActiveChar(initialCharacters[0]);
+      }
+    };
+
+    loadCharacters();
+  }, []);
+
+  const [activeChar, setActiveChar] = useState(null);
 
   const [editingChar, setEditingChar] = useState(null);
   const [isCharacterModalOpen, setIsCharacterModalOpen] = useState(false);
@@ -69,10 +88,13 @@ function App() {
 
   // ─── API Config ────────────────────────────────────────
   const [settings, setSettings] = useState({
-    provider: "openai",
+    provider: "gemini",
+
     apiKey: "",
-    baseUrl: "https://api.openai.com/v1",
-    model: "gpt-4o",
+
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+
+    model: "gemini-2.5-flash",
   });
 
   // ─── Effects ───────────────────────────────────────────
@@ -86,14 +108,31 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const savedCharId = localStorage.getItem("active_character");
-    if (savedCharId) {
-      const all = getSavedCharacters();
-      const found = all.find((c) => c.id === savedCharId);
-      if (found) { setActiveChar(found); return; }
-    }
-    const all = getSavedCharacters();
-    setActiveChar(all[0] || null);
+    const loadCharacters = async () => {
+      try {
+        const saved = await characterService.getAll();
+
+        if (saved.length) {
+          setCharacters(saved);
+
+          const savedId = localStorage.getItem("active_character");
+
+          const active = saved.find((c) => c.id === savedId) || saved[0];
+
+          setActiveChar(active);
+        } else {
+          setCharacters(initialCharacters);
+
+          await characterService.bulkSave(initialCharacters);
+
+          setActiveChar(initialCharacters[0]);
+        }
+      } catch (error) {
+        console.error("Load character error:", error);
+      }
+    };
+
+    loadCharacters();
   }, []);
 
   useEffect(() => {
@@ -102,20 +141,46 @@ function App() {
   }, [activeChar]);
 
   useEffect(() => {
-    if (!activeChar) return;
-    const savedChat = localStorage.getItem(getChatStorageKey(activeChar.id));
-    if (savedChat) { setMessages(JSON.parse(savedChat)); return; }
-    const initialMessages = [
-      { id: Date.now(), role: "character", text: activeChar.first_mes },
-    ];
-    setMessages(initialMessages);
-    localStorage.setItem(getChatStorageKey(activeChar.id), JSON.stringify(initialMessages));
+    const loadChat = async () => {
+      if (!activeChar) return;
+
+      const saved = await chatService.get(activeChar.id);
+
+      if (saved.length) {
+        setMessages(saved);
+
+        return;
+      }
+
+      const first = [
+        {
+          id: Date.now(),
+          role: "character",
+          text: activeChar.first_mes,
+        },
+      ];
+
+      setMessages(first);
+
+      await chatService.save(activeChar.id, first);
+    };
+
+    loadChat();
   }, [activeChar]);
 
   useEffect(() => {
-    if (!activeChar || !messages.length) return;
-    localStorage.setItem(getChatStorageKey(activeChar.id), JSON.stringify(messages));
+    if (!activeChar) return;
+
+    chatService.save(activeChar.id, messages);
   }, [messages, activeChar]);
+
+  const handleImportCharacters = async (imported) => {
+    setCharacters(imported);
+
+    await characterService.bulkSave(imported);
+
+    setActiveChar(imported[0]);
+  };
 
   // ─── Handlers ──────────────────────────────────────────
   const handleSelectCharacter = async (char) => {
@@ -132,7 +197,10 @@ function App() {
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
 
-    const relevantKnowledge = getRelevantKnowledge(activeChar?.profession, messageText);
+    const relevantKnowledge = getRelevantKnowledge(
+      activeChar?.profession,
+      messageText,
+    );
 
     try {
       setIsLoading(true);
@@ -156,7 +224,11 @@ function App() {
       console.error(error);
       setMessages((prev) => [
         ...prev,
-        { id: Date.now() + 2, role: "character", text: "Terjadi kesalahan saat menghubungi AI." },
+        {
+          id: Date.now() + 2,
+          role: "character",
+          text: "Terjadi kesalahan saat menghubungi AI.",
+        },
       ]);
     } finally {
       setIsLoading(false);
@@ -178,7 +250,7 @@ function App() {
               first_mes: formData.first_mes,
               scenario: formData.scenario,
             }
-          : char
+          : char,
       );
       setCharacters(updatedCharacters);
       if (activeChar?.id === editingChar.id) {
@@ -221,7 +293,10 @@ function App() {
         { id: Date.now(), role: "character", text: activeChar.first_mes },
       ];
       setMessages(initialMessage);
-      localStorage.setItem(getChatStorageKey(activeChar.id), JSON.stringify(initialMessage));
+      localStorage.setItem(
+        getChatStorageKey(activeChar.id),
+        JSON.stringify(initialMessage),
+      );
     }
     alert("Semua riwayat chat berhasil dihapus.");
   };
@@ -230,7 +305,10 @@ function App() {
   const ChatPanel = (
     <main
       className="flex flex-1 flex-col relative"
-      style={{ background: "linear-gradient(135deg, #f5ead2 0%, #ecdfc0 50%, #e8dfd0 100%)" }}
+      style={{
+        background:
+          "linear-gradient(135deg, #f5ead2 0%, #ecdfc0 50%, #e8dfd0 100%)",
+      }}
     >
       {/* Page texture */}
       <div
@@ -253,7 +331,10 @@ function App() {
         >
           <div
             className="absolute top-0 right-0 w-20 h-20 opacity-10 pointer-events-none"
-            style={{ background: "radial-gradient(circle at top right, #8b6f47 0%, transparent 70%)" }}
+            style={{
+              background:
+                "radial-gradient(circle at top right, #8b6f47 0%, transparent 70%)",
+            }}
           />
 
           <div className="flex items-center gap-3 relative z-10">
@@ -274,30 +355,46 @@ function App() {
                 style={{ boxShadow: "0 2px 6px rgba(0,0,0,0.2)" }}
               >
                 {activeChar.avatar ? (
-                  <img src={activeChar.avatar} alt={activeChar.name} className="w-full h-full object-cover" />
+                  <img
+                    src={activeChar.avatar}
+                    alt={activeChar.name}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
-                  <span className="text-lg text-white font-bold">{activeChar.name[0]}</span>
+                  <span className="text-lg text-white font-bold">
+                    {activeChar.name[0]}
+                  </span>
                 )}
               </div>
             ) : (
               <div className="bg-white p-1.5 pb-3 rounded-sm shadow-lg transform -rotate-3">
                 <div className="w-12 h-12 rounded-sm bg-gradient-to-br from-[#ffd93d] to-[#ffa94d] flex items-center justify-center overflow-hidden">
                   {activeChar.avatar ? (
-                    <img src={activeChar.avatar} alt={activeChar.name} className="w-full h-full object-cover" />
+                    <img
+                      src={activeChar.avatar}
+                      alt={activeChar.name}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
-                    <span className="text-xl text-white font-bold">{activeChar.name[0]}</span>
+                    <span className="text-xl text-white font-bold">
+                      {activeChar.name[0]}
+                    </span>
                   )}
                 </div>
               </div>
             )}
 
             <div>
-              <h1 className={`font-bold text-base sm:text-lg ${isMobile ? "text-[#fff5e6]" : "text-[#2d1f10]"}`}>
+              <h1
+                className={`font-bold text-base sm:text-lg ${isMobile ? "text-[#fff5e6]" : "text-[#2d1f10]"}`}
+              >
                 {activeChar.name}
               </h1>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#6bcf7f] animate-pulse shadow-lg" />
-                <span className={`text-sm font-medium ${isMobile ? "text-[#f5ead2]/80" : "text-[#5a4a3a]"}`}>
+                <span
+                  className={`text-sm font-medium ${isMobile ? "text-[#f5ead2]/80" : "text-[#5a4a3a]"}`}
+                >
                   {isMobile ? "Active now" : activeChar.personality}
                 </span>
               </div>
@@ -325,16 +422,27 @@ function App() {
               <div className="bg-white p-4 pb-8 rounded-sm shadow-2xl mx-auto mb-6 inline-block transform hover:rotate-0 transition-transform rotate-2">
                 <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-sm bg-gradient-to-br from-[#ffd93d] to-[#ffa94d] mx-auto flex items-center justify-center overflow-hidden">
                   {activeChar?.avatar ? (
-                    <img src={activeChar.avatar} alt={activeChar?.name} className="w-full h-full object-cover" />
+                    <img
+                      src={activeChar.avatar}
+                      alt={activeChar?.name}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
-                    <span className="text-5xl text-white font-bold">{activeChar?.name?.[0]}</span>
+                    <span className="text-5xl text-white font-bold">
+                      {activeChar?.name?.[0]}
+                    </span>
                   )}
                 </div>
-                <div className="text-center mt-2 text-[#3a2f1f] text-sm">Ready to chat!</div>
+                <div className="text-center mt-2 text-[#3a2f1f] text-sm">
+                  Ready to chat!
+                </div>
               </div>
               <div
                 className="absolute top-8 left-1/2 -translate-x-1/2 w-24 h-6 bg-[#ff6b6b]/50 -rotate-6 -z-10"
-                style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.3) 10px, rgba(255,255,255,0.3) 20px)" }}
+                style={{
+                  backgroundImage:
+                    "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.3) 10px, rgba(255,255,255,0.3) 20px)",
+                }}
               />
               <h3 className="text-xl sm:text-2xl font-bold text-[#2d1f10] mb-3">
                 Start chatting with {activeChar?.name}
@@ -374,10 +482,15 @@ function App() {
   // ─── Render ────────────────────────────────────────────
   return (
     <>
-      <div className="flex h-screen overflow-hidden" style={{ background: "#6b4f35" }}>
+      <div
+        className="flex h-screen overflow-hidden"
+        style={{ background: "#6b4f35" }}
+      >
         {isMobile ? (
           // Mobile: sidebar atau chat (tidak keduanya sekaligus)
-          showChat && activeChar ? ChatPanel : (
+          showChat && activeChar ? (
+            ChatPanel
+          ) : (
             <div className="flex-1">
               <Sidebar
                 characters={characters}
@@ -414,6 +527,7 @@ function App() {
               }}
               isMobile={false}
             />
+
             {ChatPanel}
           </>
         )}
