@@ -4,13 +4,15 @@ function ChatBubble({ message }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 group`}>
       <div
-        className={`max-w-[75%] relative transform transition-transform hover:scale-[1.02] ${
-          isUser ? "rotate-1" : "-rotate-1"
-        }`}
+        className={`
+          max-w-[85%] sm:max-w-[75%]
+          relative transform transition-transform hover:scale-[1.02]
+          ${isUser ? "rotate-1" : "-rotate-1"}
+        `}
       >
-        {/* Washi tape decoration */}
+        {/* Washi tape decoration — hidden on mobile for cleaner look */}
         <div
-          className={`absolute -top-2 ${isUser ? "right-8" : "left-8"} w-16 h-5 opacity-70 z-10`}
+          className={`hidden sm:block absolute -top-2 ${isUser ? "right-8" : "left-8"} w-16 h-5 opacity-70 z-10`}
           style={{
             backgroundColor: isUser ? "#ffa94d" : "#6bcf7f",
             backgroundImage:
@@ -25,7 +27,7 @@ function ChatBubble({ message }) {
             isUser
               ? "bg-gradient-to-br from-[#fff5e6] via-[#ffeaa7] to-[#ffd93d]"
               : "bg-gradient-to-br from-[#ffffff] via-[#f5ead2] to-[#ecdfc0]"
-          } rounded-lg px-5 py-4 shadow-lg relative border-2`}
+          } rounded-lg px-4 py-3 sm:px-5 sm:py-4 shadow-lg relative border-2`}
           style={{
             borderColor: isUser ? "#ffa94d" : "#c9a875",
             boxShadow:
@@ -53,7 +55,7 @@ function ChatBubble({ message }) {
           <p
             className={`${
               isUser ? "text-[#2d1f10]" : "text-[#3a2f1f]"
-            } leading-relaxed relative z-10 font-medium`}
+            } leading-relaxed relative z-10 font-medium text-sm sm:text-base`}
           >
             {message.text}
           </p>
