@@ -15,6 +15,123 @@ function CharacterModal({ isOpen, onClose, editingChar, onSave, settings, onImpo
   const importInputRef = useRef(null);
   const [toast, setToast] = useState(null);
 
+ 
+/**
+ * Resize image
+ * supaya avatar kecil
+ * dan aman diexport JSON
+ */
+const resizeImage = (
+  file
+) =>
+  new Promise(
+    (resolve, reject) => {
+      const img =
+        new Image();
+
+      const reader =
+        new FileReader();
+
+      reader.onload =
+        (e) => {
+          img.src =
+            e.target.result;
+        };
+
+      reader.onerror =
+        reject;
+
+      img.onload =
+        () => {
+          try {
+            const canvas =
+              document.createElement(
+                "canvas"
+              );
+
+            const size =
+              256;
+
+            canvas.width =
+              size;
+
+            canvas.height =
+              size;
+
+            const ctx =
+              canvas.getContext(
+                "2d"
+              );
+
+            ctx.drawImage(
+              img,
+              0,
+              0,
+              size,
+              size
+            );
+
+            const compressed =
+              canvas.toDataURL(
+                "image/jpeg",
+                0.8
+              );
+
+            resolve(
+              compressed
+            );
+          } catch (
+            error
+          ) {
+            reject(
+              error
+            );
+          }
+        };
+
+      reader.readAsDataURL(
+        file
+      );
+    }
+  );
+
+/**
+ * Upload avatar
+ */
+const handleAvatarUpload =
+  async (e) => {
+    const file =
+      e.target.files?.[0];
+
+    if (!file) return;
+
+    try {
+      const compressed =
+        await resizeImage(
+          file
+        );
+
+      setFormData(
+        (prev) => ({
+          ...prev,
+          avatar:
+            compressed,
+        })
+      );
+    } catch (
+      error
+    ) {
+      console.error(
+        "Gagal memproses avatar:",
+        error
+      );
+
+      alert(
+        "Gagal upload avatar."
+      );
+    }
+  };
+
   // Wrap onImport để hiện toast rồi auto close
   const { handleImport } = useCharacterImport((imported) => {
     onImport(imported);
@@ -80,6 +197,7 @@ function CharacterModal({ isOpen, onClose, editingChar, onSave, settings, onImpo
     "mb-2 block text-sm font-bold text-[#2d1f10] flex items-center gap-2";
 
   return (
+
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div
         className="w-full max-w-2xl flex flex-col shadow-2xl relative"
@@ -144,14 +262,40 @@ function CharacterModal({ isOpen, onClose, editingChar, onSave, settings, onImpo
                 <span className="w-2 h-2 bg-[#ffa94d] rounded-full inline-block" />
                 Avatar URL
               </label>
-              <input
-                type="text"
-                name="avatar"
-                value={formData.avatar}
-                onChange={handleChange}
-                placeholder="https://..."
-                className={inputClass}
-              />
+              <div>
+  <label className="mb-2 block text-sm font-medium text-slate-300">
+    Avatar
+  </label>
+
+  <div className="flex items-center gap-4">
+    {/* Preview */}
+    <div className="h-24 w-24 overflow-hidden rounded-xl border-2 border-slate-700 bg-slate-800">
+      {formData.avatar ? (
+        <img
+          src={formData.avatar}
+          alt="Avatar"
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center text-sm text-slate-500">
+          No Image
+        </div>
+      )}
+    </div>
+
+    {/* Upload */}
+    <label className="cursor-pointer rounded-xl bg-violet-600 px-4 py-3 text-white hover:bg-violet-700 transition">
+      Pilih Gambar
+
+      <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleAvatarUpload}
+      />
+    </label>
+  </div>
+</div>
               {formData.avatar && (
                 <div className="mt-3 flex justify-center">
                   <div className="bg-white p-2 pb-5 rounded-sm shadow-lg transform -rotate-2">
