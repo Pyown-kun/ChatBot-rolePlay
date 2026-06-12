@@ -261,17 +261,19 @@ function App() {
         },
       ]);
     } catch (error) {
-      console.error(error);
+  console.error(error);
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 3,
-          role: "character",
-          text: "Terjadi kesalahan saat menghubungi AI.",
-        },
-      ]);
-    } finally {
+  setMessages((prev) => [
+    ...prev,
+    {
+      id: Date.now() + 2,
+      role: "character",
+      text:
+        error.message ||
+        "Terjadi kesalahan saat menghubungi AI.",
+    },
+  ]);
+} finally {
       setIsLoading(false);
     }
   };
@@ -289,7 +291,6 @@ function App() {
               traits: formData.traits,
               personality: formData.traits.join(", "),
               first_mes: formData.first_mes,
-              scenario: formData.scenario,
             }
           : char,
       );
@@ -307,7 +308,6 @@ function App() {
         traits: formData.traits,
         personality: formData.traits.join(", "),
         first_mes: formData.first_mes,
-        scenario: formData.scenario,
       };
       setCharacters((prev) => [...prev, newChar]);
       setActiveChar(newChar);

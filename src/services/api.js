@@ -156,16 +156,29 @@ Jika user keluar konteks:
      * Final Base URL
      */
     let finalBaseUrl =
-      baseUrl ||
-      defaultUrls[
-        provider
-      ];
+  baseUrl ||
+  defaultUrls[
+    provider
+  ];
 
-    finalBaseUrl =
-      finalBaseUrl.replace(
-        /\/$/,
-        ""
-      );
+/**
+ * Auto fix protocol
+ */
+if (
+  finalBaseUrl &&
+  !finalBaseUrl.startsWith(
+    "http"
+  )
+) {
+  finalBaseUrl =
+    `https://${finalBaseUrl}`;
+}
+
+finalBaseUrl =
+  finalBaseUrl.replace(
+    /\/$/,
+    ""
+  );
 
     /**
      * Endpoint
@@ -263,44 +276,113 @@ Jika user keluar konteks:
     /**
      * Error Handler
      */
-    if (
-      !response.ok
-    ) {
-      let errorMessage =
-        "Request gagal";
+   if (!response.ok) {
+  const errorText =
+    await response.text();
 
-      try {
-        const errorData =
-          await response.json();
+  console.error(
+    "FULL API ERROR:",
+    errorText
+  );
 
-        console.error(
-          "API ERROR:",
-          errorData
-        );
+  if (
+    errorText.includes("429") ||
+    errorText.includes("RESOURCE_EXHAUSTED") ||
+    errorText.includes("quota")
+  ) {
+    return `
+⚠️ Provider AI sedang mencapai limit quota.
 
-        errorMessage =
-          errorData.error
-            ?.message ||
-          errorData.message ||
-          errorMessage;
-      } catch {}
+Coba:
+• tunggu beberapa menit
+• ganti model Gemini
+• gunakan OpenRouter free model
 
-      /**
-       * Better Rate Limit Message
-       */
-      if (
-        response.status ===
-        429
-      ) {
-        throw new Error(
-          "Kuota AI habis / rate limit tercapai."
-        );
-      }
+`;
+  }
 
-      throw new Error(
-        errorMessage
-      );
-    }
+  const errorMessage =
+  typeof errorText === "string"
+    ? errorText
+    : JSON.stringify(errorText);
+
+//
+// User-friendly error handler
+//
+if (errorMessage.includes("quota")) {
+  throw new Error(
+    "API sedang mencapai batas penggunaan. Coba lagi beberapa saat atau gunakan provider/model lain."
+  );
+}
+
+if (
+  errorMessage.includes("RESOURCE_EXHAUSTED") ||
+  errorMessage.includes("429")
+) {
+  throw new Error(
+    "Terlalu banyak request ke AI. Tunggu beberapa detik lalu coba lagi."
+  );
+}
+
+if (
+  errorMessage.includes("No endpoints found")
+) {
+  throw new Error(
+    "Model AI tidak tersedia atau sudah tidak didukung. Silakan pilih model lain."
+  );
+}
+
+if (
+  errorMessage.includes(
+    "unexpected model name format"
+  )
+) {
+  throw new Error(
+    "Nama model tidak valid. Pastikan model yang dipilih benar."
+  );
+}
+
+if (
+  errorMessage.includes(
+    "unavailable for free"
+  )
+) {
+  throw new Error(
+    "Model ini tidak tersedia gratis. Pilih model free lainnya."
+  );
+}
+
+if (
+  errorMessage.includes(
+    "Provider returned error"
+  )
+) {
+  throw new Error(
+    "Provider AI sedang bermasalah. Coba model lain atau ulangi beberapa saat lagi."
+  );
+}
+
+if (
+  errorMessage.includes("401") ||
+  errorMessage.includes("Unauthorized")
+) {
+  throw new Error(
+    "API Key tidak valid atau belum diisi."
+  );
+}
+
+if (
+  errorMessage.includes("404")
+) {
+  throw new Error(
+    "Endpoint atau model tidak ditemukan."
+  );
+}
+
+throw new Error(
+  "Terjadi kesalahan saat menghubungi AI. Coba lagi."
+);
+}
 
     /**
      * Success
@@ -336,4 +418,17 @@ Jika user keluar konteks:
 
     throw error;
   }
+
+  if (
+  errorMessage.includes("quota") ||
+  errorMessage.includes("429")
+) {
+  throw new Error(
+    "Quota Gemini habis atau belum aktif. Coba tunggu beberapa menit, ganti model, atau gunakan OpenRouter."
+  );
+}
+console.log("PROVIDER:", provider);
+console.log("MODEL:", model);
+console.log("BASE URL:", finalBaseUrl);
+console.log("ENDPOINT:", endpoint);
 }
